@@ -323,6 +323,15 @@ const Sound = {
       s2.start(t + d0, Math.random()); s2.stop(t + d0 + .05);
     }
   },
+  tear(x = 0) { /* 찌-익 뚝! 젖은 찢어짐 */
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x);
+    this.ticksG(t, out, 1, 1.4);
+    this.ticksG(t + .05, out, .9, 1.1);
+    this.squelch(t + .03, out, .95, .55, 1.2);
+    this.thump(t + .06, out, .9, .6);
+    this.pops(t + .08, out, .6, .6, 1);
+  },
   pluck(x = 0) { /* 선택: 아주 작은 무광 탭 (톤 없음) */
     if (!this.ctx) return;
     const t = this.ctx.currentTime, out = this.pan(x);
@@ -556,7 +565,9 @@ class SoftToy {
     geo.boundingSphere.radius *= 2.2; // ponytail: 변형 여유분, 레이캐스트 누락 방지
     this.count = geo.attributes.position.count;
     this.base = Float32Array.from(geo.attributes.position.array);
+    this.base0 = Float32Array.from(this.base); // 리셋/자국 음영 기준 원본
     this.baseN = Float32Array.from(geo.attributes.normal.array);
+    this.tear = !!cfg.tear;
     this.off = new Float32Array(this.count * 3);
     this.vel = new Float32Array(this.count * 3);
     /* 이웃 인접 리스트 — 라플라시안 평활(점성)용. 정점이 각자 놀면 '깨진' 느낌이 난다 */
@@ -627,12 +638,23 @@ class SoftToy {
     if (!g) return 0;
     const i = Math.min(1.4, g.mag / this.R);
     if (this.type !== 'slow' && !this.phys.plastic) this.wobV += Math.min(1.2, i * 1.1); // 저반발·점토는 찰랑이지 않는다
+    /* 소성: 변형의 일부가 영구히 새 모양이 된다 (뭉개짐·자국) */
+    const pl = this.phys.plast;
+    if (pl) {
+      const a = Math.min(.7, pl);
+      const b = this.base, o = this.off, v = this.vel;
+      for (let j = 0; j < o.length; j++) { b[j] += o[j] * a; o[j] *= 1 - a; v[j] *= .3; }
+      this.baseN.set(this.geo.attributes.normal.array);
+      this.active = true;
+    }
     return i;
   }
   reset() {
+    this.base.set(this.base0);
     this.off.fill(0); this.vel.fill(0);
     this.wob = 0; this.wobV = 0; this.grab = null;
     this.writePositions();
+    this.baseN.set(this.geo.attributes.normal.array);
     this.active = false;
   }
   writePositions() {
@@ -641,12 +663,13 @@ class SoftToy {
     this.geo.attributes.position.needsUpdate = true;
     this.geo.computeVertexNormals();
     this.geo.attributes.normal.needsUpdate = true;
-    /* 눌린 깊이 → 정점색 음영 (자국이 그늘져 보인다) */
-    const col = this.geo.attributes.color.array, bN = this.baseN;
+    /* 눌린 깊이 → 정점색 음영. 원본(base0) 기준이라 영구 자국도 계속 그늘진다 */
+    const col = this.geo.attributes.color.array, bN = this.baseN, b0 = this.base0;
     const kAo = this.ao / this.R;
     for (let i = 0; i < this.count; i++) {
       const i3 = i * 3;
-      const inward = -(o[i3] * bN[i3] + o[i3 + 1] * bN[i3 + 1] + o[i3 + 2] * bN[i3 + 2]);
+      const tx = b[i3] - b0[i3] + o[i3], ty = b[i3 + 1] - b0[i3 + 1] + o[i3 + 1], tz = b[i3 + 2] - b0[i3 + 2] + o[i3 + 2];
+      const inward = -(tx * bN[i3] + ty * bN[i3 + 1] + tz * bN[i3 + 2]);
       const s = 1 - Math.max(0, Math.min(.5, inward * kAo));
       col[i3] = col[i3 + 1] = col[i3 + 2] = s;
     }
@@ -879,7 +902,7 @@ addToy({
   name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05, ao: .3,
   hint: '쭈-욱 3배로 늘려보세요 · 찌-익 찐득 필링',
   geo: cheeseGeo(), mat: jelly('#e8a018', '#ffd98a'), pos: [0, -.2], rotY: .15,
-  phys: { k: 26, c: 10, press: .4, maxStretch: 2.2, grabR: 1.5, snap: 12, goo: .5 },
+  phys: { k: 26, c: 10, press: .4, maxStretch: 2.2, grabR: 1.5, snap: 12, goo: .5, plast: .45 }, tear: true,
   sfx: { wet: .8, bubbles: .35, sticky: .65, pitch: .6, low: 1, release: 'slap', vol: .85 }
 });
 
@@ -888,7 +911,7 @@ addToy({
   name: '몰랑 액괴', short: '액괴', emoji: '🩷', type: 'slime', R: 1.35, ao: .55,
   hint: '꾹 누르고 쭈물쭈물 반죽해보세요',
   geo: blobGeo(1.35, .78, 0, .07, 20, .22), mat: slimeMat('#ff9ec9'), pos: [-3.5, -.4],
-  phys: { k: 70, c: 6.5, press: .36, maxStretch: 1.9, grabR: 1.3, snap: 12, goo: .55 },
+  phys: { k: 70, c: 6.5, press: .36, maxStretch: 1.9, grabR: 1.3, snap: 12, goo: .55, plast: .5 }, tear: true,
   sfx: { wet: 1, bubbles: 1.25, pitch: .85, low: 1.1, sticky: .25, release: 'boing' }
 });
 
@@ -897,7 +920,7 @@ const crunchToy = addToy({
   name: '크런치 각설탕', short: '크런치', emoji: '🍬', type: 'slime', R: .95, ao: .5,
   hint: '와그작! 누를수록 촘촘한 뽀득 소리',
   geo: cubeGeo(1.6, 1.3, 1.6, .38), mat: slimeMat('#ffb3d1'), pos: [3.5, -.4], rotY: .4,
-  phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22, goo: .22 },
+  phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22, goo: .22, plast: .55 },
   sfx: { wet: .35, bubbles: .25, crunch: 1, pitch: 1.05, low: .7, release: 'crunch' }
 });
 
@@ -916,7 +939,7 @@ addToy({
 
 /* 5~6. 젤리 — 탱글 바운스 + 글룩 */
 const jellySfx = { wet: .65, bubbles: 1, pitch: 1.35, low: .8, release: 'jelly', vol: .9 };
-const jellyPhys = { k: 180, c: 2.8, press: .26, maxStretch: 1.15, grabR: 1.1, snap: 26, goo: .3 };
+const jellyPhys = { k: 180, c: 2.8, press: .26, maxStretch: 1.15, grabR: 1.1, snap: 26, goo: .3, plast: .06 };
 const jApple = addToy({
   name: '젤리 사과', short: '사과젤리', emoji: '🍎', type: 'jelly', R: 1.05, ao: .25,
   hint: '탱글탱글! 당겼다 놓아보세요',
@@ -940,7 +963,7 @@ const slang = addToy({
     attenuationColor: new THREE.Color('#ff7fb0'), attenuationDistance: 2.5,
     clearcoat: .8, clearcoatRoughness: .3, envMapIntensity: .7, side: THREE.DoubleSide
   }),
-  phys: { k: 32, c: 5, press: .3, maxStretch: 2.4, grabR: 1.7, snap: 14, goo: .5 },
+  phys: { k: 32, c: 5, press: .3, maxStretch: 2.4, grabR: 1.7, snap: 14, goo: .5, plast: .35 }, tear: true,
   sfx: { wet: .5, bubbles: .4, sticky: 1, pitch: 1, low: .9, release: 'slap' }
 });
 
@@ -1307,6 +1330,37 @@ const Dust = (() => {
   };
 })();
 
+/* 찢어져 나온 슬라임 조각들 */
+const Crumbs = {
+  list: [],
+  spawn(toy, worldPos, vel) {
+    if (this.list.length >= 10) scene.remove(this.list.shift().mesh);
+    const r = toy.R * (.16 + Math.random() * .12);
+    const geo = new THREE.SphereGeometry(r, 12, 10);
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 3).fill(1), 3));
+    const m = new THREE.Mesh(geo, toy.mesh.material);
+    m.castShadow = true;
+    m.position.copy(worldPos);
+    scene.add(m);
+    this.list.push({ mesh: m, vel: vel.clone(), r, landed: false });
+  },
+  update(dt) {
+    for (const c of this.list) {
+      if (c.landed) continue;
+      c.vel.y -= 9 * dt;
+      c.mesh.position.addScaledVector(c.vel, dt);
+      const hr = Math.hypot(c.mesh.position.x, c.mesh.position.z);
+      const floor = (hr < 5.3 ? .38 : .06) + c.r * .55;
+      if (c.mesh.position.y <= floor) {
+        c.mesh.position.y = floor;
+        c.mesh.scale.set(1.3, .55, 1.3); // 떨어져서 찌부
+        c.landed = true;
+      }
+    }
+  },
+  clear() { for (const c of this.list) scene.remove(c.mesh); this.list.length = 0; }
+};
+
 /* 배경 보케: 멀리서 부드럽게 빛나는 파스텔 원 */
 {
   const defs = [[2.8, .05], [4.6, .035]];
@@ -1381,7 +1435,7 @@ function select(toy) {
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const grabs = new Map(); // pointerId -> {mode:'grab'|'chip', toy, ...}
-let squishCount = 0, toastShown = false;
+let squishCount = 0, toastShown = false, tearToastShown = false;
 
 const el = {
   count: document.getElementById('count'),
@@ -1536,6 +1590,22 @@ function onMove(e) {
   const dispLocal = toy.mesh.worldToLocal(_v1.clone()).sub(pA);
   grab.disp.copy(dispLocal);
 
+  /* 한계 이상 당기면 찌-익 뚝! */
+  if (toy.tear && dispLocal.length() > toy.phys.maxStretch * toy.R * 1.18) {
+    grabs.delete(e.pointerId);
+    Sound.bedStop(g.bed);
+    const at = _v1.clone();
+    toy.endGrab();
+    Sound.tear(toy.mesh.position.x);
+    Burst.burst(at, 14, .8);
+    Crumbs.spawn(toy, at, _v2.copy(at).sub(toy.mesh.position).setY(0).normalize().multiplyScalar(1.4).setY(2.2));
+    navigator.vibrate?.(35);
+    bumpCount();
+    if (!tearToastShown) { tearToastShown = true; toast('앗, 찢어졌다! 🫣 조각이 떨어졌어요 (↺리셋으로 복구)'); }
+    canvas.style.cursor = 'default';
+    return;
+  }
+
   const now = performance.now();
   const moved = _v2.copy(_v1).sub(g.lastWorld).length();
   g.acc += moved;
@@ -1615,6 +1685,7 @@ document.getElementById('reset').addEventListener('click', () => {
   endAllGrabs();
   toys.forEach(t => t.reset());
   WaxShell.restore();
+  Crumbs.clear();
   if (selected) el.hint.textContent = `${selected.emoji} ${selected.hint}`;
   Sound.init(); Sound.pluck(0);
 });
@@ -1627,7 +1698,7 @@ addEventListener('resize', () => {
 });
 
 window.__slime = {
-  toys, grabs, Sound, Burst, WaxShell, camera,
+  toys, grabs, Sound, Burst, WaxShell, Crumbs, camera,
   select: i => select(i == null ? null : toys[i]),
   project(i) {
     const t = toys[i];
@@ -1655,6 +1726,7 @@ function tick(now) {
   WaxShell.sync();
   Burst.update(dt);
   Shards.update(dt);
+  Crumbs.update(dt);
   Dust.update(t);
   renderer.render(scene, camera);
 }
