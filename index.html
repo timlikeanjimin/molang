@@ -169,18 +169,23 @@ const Sound = {
       src.start(t0, Math.random()); src.stop(t0 + .5);
     }
   },
+  /* 기포 팝: 사인파(=삐용음) 금지. 고Q 밴드패스 노이즈 버스트 = 물기 있는 '플립' */
   pops(t, out, i, pitch = 1, mul = 1) {
     const ctx = this.ctx;
     const nb = Math.round((1 + Math.random() * 2 + i * 2.2) * Math.min(1.5, mul));
     for (let k = 0; k < nb; k++) {
       const d0 = Math.random() * (.05 + .1 * i);
-      const f = (350 + Math.random() * 1100) * pitch;
-      const b = ctx.createOscillator(); b.type = 'sine';
-      b.frequency.setValueAtTime(f, t + d0);
-      b.frequency.exponentialRampToValueAtTime(f * (1.7 + Math.random() * .9), t + d0 + .045);
+      const src = ctx.createBufferSource(); src.buffer = this.noise;
+      src.playbackRate.value = .8 + Math.random() * .6;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+      const f = (450 + Math.random() * 1200) * pitch;
+      bp.frequency.setValueAtTime(f, t + d0);
+      bp.frequency.exponentialRampToValueAtTime(f * .55, t + d0 + .05);
+      bp.Q.value = 7 + Math.random() * 5;
       const g = ctx.createGain();
-      this.env(g, t + d0, .003, (.04 + .06 * Math.random() + .05 * i) * mul, .05);
-      b.connect(g); g.connect(out); b.start(t + d0); b.stop(t + d0 + .13);
+      this.env(g, t + d0, .003, (.07 + .09 * Math.random() + .07 * i) * mul, .035 + Math.random() * .03);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t + d0, Math.random()); src.stop(t + d0 + .12);
     }
   },
   /* 크런치 슬라임 뽀득/바삭 */
@@ -214,11 +219,6 @@ const Sound = {
       src.connect(bp); bp.connect(g); g.connect(out);
       src.start(t + d0, Math.random()); src.stop(t + d0 + .07);
     }
-    const c = ctx.createOscillator(); c.type = 'sine';
-    c.frequency.setValueAtTime(880 + Math.random() * 200, t);
-    c.frequency.exponentialRampToValueAtTime(460, t + .07);
-    const cg = ctx.createGain(); this.env(cg, t, .004, .035 * mul * i, .06);
-    c.connect(cg); cg.connect(out); c.start(t); c.stop(t + .12);
   },
   foamG(t, out, i, mul = 1) {
     const ctx = this.ctx;
@@ -275,31 +275,16 @@ const Sound = {
       this.ticksG(t + .03, out, i, 1 * v);
       return;
     }
-    /* boing / jelly */
-    const jelly = style === 'jelly';
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass';
-    lp.frequency.value = jelly ? 1900 : 1300; lp.connect(out);
-    const f0 = (jelly ? 210 : 145) + (jelly ? 130 : 95) * i;
-    [1, 1.52].forEach((m, idx) => {
-      const o = this.ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(f0 * m * 1.18 * p, t);
-      o.frequency.exponentialRampToValueAtTime(f0 * m * .8 * p, t + (jelly ? .22 : .3));
-      const lfo = this.ctx.createOscillator(); lfo.frequency.value = (jelly ? 9 : 6.5) + 4.5 * i;
-      const lg = this.ctx.createGain(); lg.gain.value = f0 * m * .06;
-      lfo.connect(lg); lg.connect(o.frequency);
-      const og = this.ctx.createGain();
-      this.env(og, t, .006, (.12 + .15 * i) * (idx ? .38 : 1), jelly ? .24 : .34);
-      o.connect(og); og.connect(lp);
-      o.start(t); o.stop(t + .45); lfo.start(t); lfo.stop(t + .45);
-    });
-    if (jelly) { /* 글룩: 위로 미끄러지는 물방울 블룹 */
-      const gl = this.ctx.createOscillator(); gl.type = 'sine';
-      gl.frequency.setValueAtTime(140 + 70 * i, t);
-      gl.frequency.exponentialRampToValueAtTime(270 + 90 * i, t + .12);
-      const gg = this.ctx.createGain(); this.env(gg, t, .01, .1 * v, .16);
-      gl.connect(gg); gg.connect(out); gl.start(t); gl.stop(t + .25);
+    /* wet(구 boing) / jelly — 오실레이터 삐용음 없이 젖은 소리로만 놓인다 */
+    const jl = style === 'jelly';
+    this.thump(t, out, Math.min(1, .25 + i * .8) * v, p);
+    this.squelch(t, out, i, p, (sfx.wet ?? .7) * v);
+    this.pops(t, out, i * .8, p * (jl ? 1.25 : 1), (sfx.bubbles ?? 1) * .9 * v);
+    if (jl) { /* 탱글: 잦아드는 잔진동처럼 스쿼치가 한 번 더 */
+      this.squelch(t + .09, out, i * .55, p * 1.15, (sfx.wet ?? .7) * .6 * v);
+      this.pops(t + .17, out, i * .3, p * 1.3, .5 * v);
     }
-    if (sfx.wet) this.squelch(t, out, i * .5, p, sfx.wet * .7 * v);
+    if (sfx.sticky) this.ticksG(t + .02, out, i * .8, sfx.sticky * .8 * v);
     if (sfx.crunch) this.crunchG(t, out, i * .8, sfx.crunch * .8 * v, p);
   },
   /* 왁뿌볼 껍질 깨기: 뿌직! first=첫 크랙(제일 큰 와그작, 속심이 울림을 먹어 둔탁) */
@@ -338,14 +323,48 @@ const Sound = {
       s2.start(t + d0, Math.random()); s2.stop(t + d0 + .05);
     }
   },
-  pluck(x = 0) {
+  pluck(x = 0) { /* 선택: 아주 작은 무광 탭 (톤 없음) */
     if (!this.ctx) return;
     const t = this.ctx.currentTime, out = this.pan(x);
-    const o = this.ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(520, t);
-    o.frequency.exponentialRampToValueAtTime(760, t + .07);
-    const g = this.ctx.createGain(); this.env(g, t, .005, .08, .1);
-    o.connect(g); g.connect(out); o.start(t); o.stop(t + .2);
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650;
+    const g = this.ctx.createGain(); this.env(g, t, .004, .07, .07);
+    src.connect(lp); lp.connect(g); g.connect(out);
+    src.start(t, Math.random()); src.stop(t + .15);
+  },
+  /* ---- 연속 반죽 베드: 손이 움직이는 동안만 흐르는 '슬라임 자체의 소리' ---- */
+  bed(sfx, x) {
+    if (!this.ctx) return null;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noise; src.loop = true;
+    src.playbackRate.value = .55;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 420 * sfx.pitch; bp.Q.value = .9;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(this.pan(x));
+    src.start(0, Math.random());
+    return {
+      src, bp, g,
+      base: (sfx.wet ?? 0) * .8 + (sfx.sticky ?? 0) * .4 + (sfx.foam ?? 0) * .55,
+      pitch: sfx.pitch, vol: sfx.vol ?? 1
+    };
+  },
+  bedMove(b, speed) { /* speed: 월드유닛/초 — 멈추면 자동으로 잦아든다 */
+    if (!b || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const target = Math.min(.15, speed * .03) * b.base * b.vol;
+    b.g.gain.cancelScheduledValues(t);
+    b.g.gain.setTargetAtTime(target, t, .05);
+    b.g.gain.setTargetAtTime(0, t + .14, .18);
+    b.bp.frequency.setTargetAtTime((320 + Math.random() * 280) * b.pitch, t, .12);
+  },
+  bedStop(b) {
+    if (!b || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    b.g.gain.cancelScheduledValues(t);
+    b.g.gain.setTargetAtTime(0, t, .06);
+    try { b.src.stop(t + .4); } catch (_) {}
   }
 };
 document.addEventListener('visibilitychange', () => {
@@ -493,6 +512,25 @@ class SoftToy {
     this.baseN = Float32Array.from(geo.attributes.normal.array);
     this.off = new Float32Array(this.count * 3);
     this.vel = new Float32Array(this.count * 3);
+    /* 이웃 인접 리스트 — 라플라시안 평활(점성)용. 정점이 각자 놀면 '깨진' 느낌이 난다 */
+    {
+      const index = geo.index.array;
+      const sets = Array.from({ length: this.count }, () => new Set());
+      for (let f = 0; f < index.length; f += 3) {
+        const a = index[f], b = index[f + 1], c = index[f + 2];
+        sets[a].add(b).add(c); sets[b].add(a).add(c); sets[c].add(a).add(b);
+      }
+      let total = 0; for (const s of sets) total += s.size;
+      this.nbrStart = new Uint32Array(this.count + 1);
+      this.nbrList = new Uint32Array(total);
+      let ptr = 0;
+      for (let i = 0; i < this.count; i++) {
+        this.nbrStart[i] = ptr;
+        for (const j of sets[i]) this.nbrList[ptr++] = j;
+      }
+      this.nbrStart[this.count] = ptr;
+      this.tmpOff = new Float32Array(this.count * 3);
+    }
     this.active = false;
     this.grab = null;
     this.wob = 0; this.wobV = 0;
@@ -524,7 +562,7 @@ class SoftToy {
     for (let i = 0; i < n; i++) {
       const dx = b[i * 3] - hitLocal.x, dy = b[i * 3 + 1] - hitLocal.y, dz = b[i * 3 + 2] - hitLocal.z;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d < Ri) { const q = 1 - d / Ri; w[i] = q * q; }
+      if (d < Ri) { const q = 1 - d / Ri; w[i] = q * q * (3 - 2 * q); } // smoothstep = 경계 절벽 없음
       const rd = (d - Ri * 1.25) / (Ri * .55);
       ring[i] = Math.exp(-rd * rd) * .35;
     }
@@ -605,10 +643,30 @@ class SoftToy {
     }
 
     if (this.active) {
+      /* 라플라시안 평활 = 점성. 이웃끼리 끌려가며 절벽/각짐 없이 흐물흐물 이어진다 */
+      const goo = this.phys.goo ?? .35;
+      const iters = goo > .45 ? 2 : 1;
+      const ns = this.nbrStart, nl = this.nbrList, dst = this.tmpOff;
+      for (let it = 0; it < iters; it++) {
+        for (let i = 0; i < n; i++) {
+          const s0 = ns[i], s1 = ns[i + 1], deg = s1 - s0;
+          let ax = 0, ay = 0, az = 0;
+          for (let k = s0; k < s1; k++) {
+            const j3 = nl[k] * 3;
+            ax += off[j3]; ay += off[j3 + 1]; az += off[j3 + 2];
+          }
+          const mix = goo / deg, keep = 1 - goo;
+          const i3 = i * 3;
+          dst[i3] = off[i3] * keep + ax * mix;
+          dst[i3 + 1] = off[i3 + 1] * keep + ay * mix;
+          dst[i3 + 2] = off[i3 + 2] * keep + az * mix;
+        }
+        off.set(dst);
+      }
       let e = 0;
       for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
       this.writePositions();
-      if (!g && e < 1e-4) {
+      if (!g && e < this.count * 3e-7) {
         off.fill(0); vel.fill(0);
         this.writePositions();
         this.active = false;
@@ -745,7 +803,7 @@ addToy({
   name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05,
   hint: '쭈-욱 3배로 늘려보세요 · 찌-익 찐득 필링',
   geo: cheeseGeo(), mat: jelly('#e8a018', '#ffd98a'), pos: [0, -.2], rotY: .15,
-  phys: { k: 26, c: 10, press: .4, maxStretch: 2.8, grabR: 1.5, snap: 12 },
+  phys: { k: 26, c: 10, press: .4, maxStretch: 2.8, grabR: 1.5, snap: 12, goo: .5 },
   sfx: { wet: .8, bubbles: .35, sticky: .65, pitch: .6, low: 1, release: 'slap', vol: .85 }
 });
 
@@ -754,7 +812,7 @@ addToy({
   name: '몰랑 액괴', short: '액괴', emoji: '🩷', type: 'slime', R: 1.35,
   hint: '꾹 누르고 쭈물쭈물 반죽해보세요',
   geo: blobGeo(1.35, .78, 0, .07, 20, .22), mat: slimeMat('#ff9ec9'), pos: [-3.5, -.4],
-  phys: { k: 70, c: 6.5, press: .42, maxStretch: 1.9, grabR: 1.25, snap: 12 },
+  phys: { k: 70, c: 6.5, press: .36, maxStretch: 1.9, grabR: 1.3, snap: 12, goo: .55 },
   sfx: { wet: 1, bubbles: 1.25, pitch: .85, low: 1.1, sticky: .25, release: 'boing' }
 });
 
@@ -763,7 +821,7 @@ const crunchToy = addToy({
   name: '크런치 각설탕', short: '크런치', emoji: '🍬', type: 'slime', R: .95,
   hint: '와그작! 누를수록 촘촘한 뽀득 소리',
   geo: cubeGeo(1.6, 1.3, 1.6, .38), mat: slimeMat('#ffb3d1'), pos: [3.5, -.4], rotY: .4,
-  phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22 },
+  phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22, goo: .22 },
   sfx: { wet: .35, bubbles: .25, crunch: 1, pitch: 1.05, low: .7, release: 'crunch' }
 });
 
@@ -776,13 +834,13 @@ addToy({
     color: '#9ecb3f', roughness: .45, clearcoat: .35, clearcoatRoughness: .5,
     sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#eaffc0'), envMapIntensity: .6
   }),
-  phys: { k: 5, c: 5.5, press: .55, maxStretch: 1.1, grabR: 1.3, snap: 10 },
+  phys: { k: 5, c: 5.5, press: .55, maxStretch: 1.1, grabR: 1.3, snap: 10, goo: .5 },
   sfx: { wet: .2, bubbles: .15, foam: 1, pitch: .6, low: 1.2, release: 'foam', vol: .55 }
 });
 
 /* 5~6. 젤리 — 탱글 바운스 + 글룩 */
 const jellySfx = { wet: .65, bubbles: 1, pitch: 1.35, low: .8, release: 'jelly', vol: .9 };
-const jellyPhys = { k: 180, c: 2.8, press: .26, maxStretch: 1.15, grabR: 1.05, snap: 26 };
+const jellyPhys = { k: 180, c: 2.8, press: .26, maxStretch: 1.15, grabR: 1.1, snap: 26, goo: .3 };
 const jApple = addToy({
   name: '젤리 사과', short: '사과젤리', emoji: '🍎', type: 'jelly', R: 1.05,
   hint: '탱글탱글! 당겼다 놓아보세요',
@@ -806,7 +864,7 @@ const slang = addToy({
     attenuationColor: new THREE.Color('#ff7fb0'), attenuationDistance: 2.5,
     clearcoat: .8, clearcoatRoughness: .3, envMapIntensity: .7
   }),
-  phys: { k: 32, c: 5, press: .3, maxStretch: 3.2, grabR: 1.7, snap: 14 },
+  phys: { k: 32, c: 5, press: .3, maxStretch: 3.2, grabR: 1.7, snap: 14, goo: .45 },
   sfx: { wet: .5, bubbles: .4, sticky: 1, pitch: 1, low: .9, release: 'slap' }
 });
 
@@ -816,7 +874,7 @@ const waxInner = addToy({
   hint: '톡톡! 두드려서 왁스 껍질을 와그작 깨보세요',
   geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
   mat: new THREE.MeshStandardMaterial({ color: '#ffe3ae', roughness: .9, envMapIntensity: .35 }), // 속심=매트 점토(하이라이트에 안 날아가게 크림톤)
-  phys: { k: 14, c: 8, press: .55, maxStretch: 1.3, grabR: 1.3, snap: 12 },
+  phys: { k: 14, c: 8, press: .55, maxStretch: 1.3, grabR: 1.3, snap: 12, goo: .5 },
   sfx: { wet: .3, bubbles: .2, foam: .6, pitch: .55, low: 1, release: 'foam', vol: .7 }
 });
 
@@ -1139,7 +1197,7 @@ function focusView(toy) {
   return { pos, target };
 }
 function endAllGrabs() {
-  for (const [, g] of grabs) { if (g.toy) g.toy.endGrab(); }
+  for (const [, g] of grabs) { if (g.toy) g.toy.endGrab(); Sound.bedStop(g.bed); }
   grabs.clear();
 }
 function select(toy) {
@@ -1278,9 +1336,10 @@ function onDown(e) {
     mode: 'grab', toy, hitWorld,
     plane: new THREE.Plane().setFromNormalAndCoplanarPoint(camDir.negate(), hitWorld),
     lastWorld: hitWorld.clone(), lastT: performance.now(),
-    acc: 0, lastGrainT: 0, lastMag: 0
+    acc: 0, lastGrainT: 0, lastMag: 0,
+    bed: Sound.bed(toy.sfx, toy.mesh.position.x) // 만지는 동안 흐르는 연속음
   });
-  Sound.press(toy.sfx, .4 + Math.random() * .2, toy.mesh.position.x);
+  Sound.press(toy.sfx, .28 + Math.random() * .14, toy.mesh.position.x);
   Burst.burst(hitWorld, 7, .5);
   navigator.vibrate?.(10);
   canvas.style.cursor = 'grabbing';
@@ -1341,10 +1400,11 @@ function onMove(e) {
   g.acc += moved;
   const speed = moved / Math.max(1, now - g.lastT) * 1000;
   g.lastWorld.copy(_v1); g.lastT = now;
-  if (g.acc > .15 && now - g.lastGrainT > 55) {
+  Sound.bedMove(g.bed, speed); // 연속음이 손 속도를 따라간다
+  if (g.acc > .3 && now - g.lastGrainT > 90) {
     g.lastGrainT = now; g.acc = 0;
-    Sound.drag(toy.sfx, Math.min(1, .18 + speed * .09), toy.mesh.position.x);
-    if (Math.random() < .5) Burst.burst(_v1, 2, .3);
+    Sound.drag(toy.sfx, Math.min(.8, .12 + speed * .06), toy.mesh.position.x);
+    if (Math.random() < .4) Burst.burst(_v1, 2, .3);
   }
   if (grab.mag > toy.R * .85 && grab.mag > g.lastMag && Math.random() < .35) {
     Sound.stretchTick(toy.sfx, toy.mesh.position.x);
@@ -1357,6 +1417,7 @@ function onUp(e) {
   if (!g) return;
   grabs.delete(e.pointerId);
   canvas.style.cursor = 'default';
+  Sound.bedStop(g.bed);
   if (g.mode === 'chip') return;
   const toy = g.toy;
   const gg = toy.grab;
