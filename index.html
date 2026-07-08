@@ -948,7 +948,7 @@ const slang = addToy({
 const waxInner = addToy({
   name: '왁뿌볼 청사과', short: '왁뿌볼', emoji: '🍏', type: 'wax', R: 1.05, ao: .65,
   hint: '꾹꾹! 왁스가 부서지며 점토째 눌려요 — 자국은 그대로 남아요',
-  geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
+  geo: blobGeo(1.0, .96, 0, .008, 20), pos: [2.6, 2.4],
   mat: new THREE.MeshStandardMaterial({ color: '#ffe3ae', roughness: .9, envMapIntensity: .35 }), // 속심=매트 점토(하이라이트에 안 날아가게 크림톤)
   phys: { k: 0, c: 10, press: .55, maxStretch: .55, grabR: 1.25, snap: 20, goo: .5, plastic: true }, // 점토: 복원 없음, 안 늘어남
   sfx: { wet: .3, bubbles: .2, foam: .6, pitch: .55, low: 1, release: 'foam', vol: .7 }
@@ -1035,7 +1035,7 @@ const toyMeshes = toys.map(t => t.mesh);
 const WaxShell = {
   toy: waxInner, mesh: null, aliveCount: 0, faceCount: 0, alive: null, orig: null, centroids: null,
   build() {
-    const geo = new THREE.IcosahedronGeometry(1.0 * 1.09, 6); // non-indexed 삼각형 수프 (980조각)
+    const geo = new THREE.IcosahedronGeometry(1.05, 6); // non-indexed 삼각형 수프 (980조각) — 점토에 밀착한 얇은 스킨
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) { // 손으로 담근 왁스: 아주 은은한 요철만
       _v1.set(p.getX(i), p.getY(i), p.getZ(i));
@@ -1071,6 +1071,20 @@ const WaxShell = {
     this.mesh.userData.shellOf = this.toy;
     geo.computeBoundingSphere();
     scene.add(this.mesh);
+    /* 껍질 정점 → 가장 가까운 점토 정점 매핑: 점토가 눌리면 왁스도 눌러 붙는다 */
+    this.map = new Uint32Array(p.count);
+    const cb = this.toy.base, cn = this.toy.count;
+    for (let v = 0; v < p.count; v++) {
+      const x = this.orig[v * 3], y = this.orig[v * 3 + 1], z = this.orig[v * 3 + 2];
+      let best = 0, bd = Infinity;
+      for (let j = 0; j < cn; j++) {
+        const dx = cb[j * 3] - x, dy = cb[j * 3 + 1] - y, dz = cb[j * 3 + 2] - z;
+        const d = dx * dx + dy * dy + dz * dz;
+        if (d < bd) { bd = d; best = j; }
+      }
+      this.map[v] = best;
+    }
+    this._wasActive = false;
     const stem = new THREE.Mesh(
       new THREE.CylinderGeometry(.035, .055, .34, 8),
       new THREE.MeshStandardMaterial({ color: '#7a4a26', roughness: .8 })
@@ -1090,6 +1104,19 @@ const WaxShell = {
     this.mesh.rotation.copy(this.toy.mesh.rotation);
     this.mesh.scale.copy(this.toy.mesh.scale); // 속심의 숨쉬기/움찔거림을 껍질도 따라가야 살아있는 느낌
     this.mesh.visible = this.aliveCount > 0;
+    /* 점토 변형을 따라 왁스가 눌러 붙는다 (부서진 조각은 그대로) */
+    const t = this.toy;
+    if (!this.aliveCount || (!t.active && !this._wasActive)) return;
+    this._wasActive = t.active;
+    const p = this.geo.attributes.position.array, o = this.orig, off = t.off, map = this.map, alive = this.alive;
+    for (let v = 0; v < map.length; v++) {
+      if (!alive[(v / 3) | 0]) continue;
+      const j3 = map[v] * 3, v3 = v * 3;
+      p[v3] = o[v3] + off[j3];
+      p[v3 + 1] = o[v3 + 1] + off[j3 + 1];
+      p[v3 + 2] = o[v3 + 2] + off[j3 + 2];
+    }
+    this.geo.attributes.position.needsUpdate = true;
   },
   chipAt(worldPoint, radius) {
     if (!this.mesh || !this.aliveCount) return 0;
