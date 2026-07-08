@@ -383,11 +383,15 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 {
-  const bg = document.createElement('canvas'); bg.width = 16; bg.height = 256;
+  /* 스튜디오 라디얼 배경: 중앙이 밝고 가장자리로 갈수록 딥핑크 비네트 */
+  const bg = document.createElement('canvas'); bg.width = bg.height = 512;
   const g = bg.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#fff8f2'); gr.addColorStop(.55, '#ffe9ef'); gr.addColorStop(1, '#ffd8e5');
-  g.fillStyle = gr; g.fillRect(0, 0, 16, 256);
+  const gr = g.createRadialGradient(256, 190, 40, 256, 260, 430);
+  gr.addColorStop(0, '#fffaf5');
+  gr.addColorStop(.45, '#ffe9f0');
+  gr.addColorStop(.8, '#f9d3e2');
+  gr.addColorStop(1, '#efc0d6');
+  g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
   const tex = new THREE.CanvasTexture(bg);
   tex.colorSpace = THREE.SRGBColorSpace;
   scene.background = tex;
@@ -450,7 +454,8 @@ function woodTexture() {
   return tex;
 }
 {
-  const wood = new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: .55, metalness: 0 });
+  const woodTex = woodTexture();
+  const wood = new THREE.MeshStandardMaterial({ map: woodTex, bumpMap: woodTex, bumpScale: .015, roughness: .55, metalness: 0 });
   const tray = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.65, .38, 64), wood);
   tray.position.y = .19;
   tray.receiveShadow = true; tray.castShadow = true;
@@ -459,10 +464,52 @@ function woodTexture() {
   rim.rotation.x = Math.PI / 2; rim.position.y = .38;
   rim.castShadow = true; rim.receiveShadow = true;
   scene.add(rim);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: .16 }));
+
+  /* 진짜 테이블 + 패브릭 매트 */
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: '#ffeedd', roughness: .95 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
+  const mat = new THREE.Mesh(new THREE.CylinderGeometry(7.4, 7.4, .06, 72), new THREE.MeshStandardMaterial({ color: '#fff4e6', roughness: .97 }));
+  mat.position.y = .03;
+  mat.receiveShadow = true;
+  scene.add(mat);
+
+  /* 소품: 슬라임 딜리컵 + 뚜껑 + 나무 스패출러 + 흩어진 비즈 */
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: '#ffffff', transmission: .92, roughness: .06, thickness: .12, ior: 1.4,
+    transparent: true, side: THREE.DoubleSide
+  });
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(.92, .78, 1.5, 32, 1, true), glass);
+  cup.position.set(7.0, .81, .9);
+  const cupBottom = new THREE.Mesh(new THREE.CylinderGeometry(.78, .78, .05, 32), glass);
+  cupBottom.position.set(7.0, .09, .9);
+  const cupSlime = new THREE.Mesh(new THREE.SphereGeometry(.64, 24, 18), new THREE.MeshPhysicalMaterial({
+    color: '#ffa8cf', roughness: .22, clearcoat: 1, clearcoatRoughness: .25, iridescence: .28, iridescenceIOR: 1.3
+  }));
+  cupSlime.scale.y = .6;
+  cupSlime.position.set(7.0, .5, .9);
+  cupSlime.castShadow = true;
+  const lid = new THREE.Mesh(
+    new THREE.CylinderGeometry(.98, .98, .08, 32),
+    new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: .25, clearcoat: .8, transparent: true, opacity: .85 })
+  );
+  lid.position.set(5.6, .06, 3.1);
+  lid.castShadow = true; lid.receiveShadow = true;
+  const spatula = new THREE.Mesh(new THREE.BoxGeometry(.52, .07, 2.3), wood);
+  spatula.position.set(-6.7, .09, 1.8);
+  spatula.rotation.y = .7;
+  spatula.castShadow = true; spatula.receiveShadow = true;
+  scene.add(cup, cupBottom, cupSlime, lid, spatula);
+  const beadGeo = new THREE.SphereGeometry(.11, 10, 10);
+  const beadCols = ['#ffd1e3', '#ffe6a8', '#c8ecff', '#d8ffd0', '#ffffff'];
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 1.8;
+    const b = new THREE.Mesh(beadGeo, new THREE.MeshStandardMaterial({ color: beadCols[i % 5], roughness: .35 }));
+    b.position.set(Math.cos(a) * r, .11, Math.sin(a) * r);
+    b.castShadow = true; b.receiveShadow = true;
+    scene.add(b);
+  }
 }
 
 /* ============================== 소프트바디 ============================== */
@@ -531,6 +578,11 @@ class SoftToy {
       this.nbrStart[this.count] = ptr;
       this.tmpOff = new Float32Array(this.count * 3);
     }
+    /* 눌린 깊이만큼 어두워지는 실시간 AO — 자국의 깊이감 */
+    this.ao = cfg.ao ?? .5;
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.count * 3).fill(1), 3));
+    cfg.mat.vertexColors = true;
+    if (!(cfg.mat.transmission > .1)) this.mesh.receiveShadow = true;
     this.active = false;
     this.grab = null;
     this.wob = 0; this.wobV = 0;
@@ -589,6 +641,16 @@ class SoftToy {
     this.geo.attributes.position.needsUpdate = true;
     this.geo.computeVertexNormals();
     this.geo.attributes.normal.needsUpdate = true;
+    /* 눌린 깊이 → 정점색 음영 (자국이 그늘져 보인다) */
+    const col = this.geo.attributes.color.array, bN = this.baseN;
+    const kAo = this.ao / this.R;
+    for (let i = 0; i < this.count; i++) {
+      const i3 = i * 3;
+      const inward = -(o[i3] * bN[i3] + o[i3 + 1] * bN[i3 + 1] + o[i3 + 2] * bN[i3 + 2]);
+      const s = 1 - Math.max(0, Math.min(.5, inward * kAo));
+      col[i3] = col[i3 + 1] = col[i3 + 2] = s;
+    }
+    this.geo.attributes.color.needsUpdate = true;
     this.updateDecos();
     if (this.onDeform) this.onDeform();
   }
@@ -799,7 +861,8 @@ const jelly = (color, tint) => new THREE.MeshPhysicalMaterial({
 });
 const slimeMat = (color) => new THREE.MeshPhysicalMaterial({
   color, roughness: .22, clearcoat: 1, clearcoatRoughness: .25,
-  sheen: .4, sheenColor: new THREE.Color('#ffd9e8'), envMapIntensity: .75
+  sheen: .4, sheenColor: new THREE.Color('#ffd9e8'), envMapIntensity: .75,
+  iridescence: .28, iridescenceIOR: 1.3 // 진주빛 슬라임 광택
 });
 
 /* ============================== 장난감 구성 ============================== */
@@ -808,7 +871,7 @@ function addToy(cfg) { const t = new SoftToy(cfg); toys.push(t); scene.add(t.mes
 
 /* 1. 왕치즈 슬랑이 — 히어로. 반투명 앰버 치즈, 쭉쭉 늘고 찐득하게 붙는다 */
 addToy({
-  name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05,
+  name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05, ao: .3,
   hint: '쭈-욱 3배로 늘려보세요 · 찌-익 찐득 필링',
   geo: cheeseGeo(), mat: jelly('#e8a018', '#ffd98a'), pos: [0, -.2], rotY: .15,
   phys: { k: 26, c: 10, press: .4, maxStretch: 2.8, grabR: 1.5, snap: 12, goo: .5 },
@@ -817,7 +880,7 @@ addToy({
 
 /* 2. 액괴 블롭 — 깊고 축축한 쭈걱쭈걱 */
 addToy({
-  name: '몰랑 액괴', short: '액괴', emoji: '🩷', type: 'slime', R: 1.35,
+  name: '몰랑 액괴', short: '액괴', emoji: '🩷', type: 'slime', R: 1.35, ao: .55,
   hint: '꾹 누르고 쭈물쭈물 반죽해보세요',
   geo: blobGeo(1.35, .78, 0, .07, 20, .22), mat: slimeMat('#ff9ec9'), pos: [-3.5, -.4],
   phys: { k: 70, c: 6.5, press: .36, maxStretch: 1.9, grabR: 1.3, snap: 12, goo: .55 },
@@ -826,7 +889,7 @@ addToy({
 
 /* 3. 크런치 각설탕 — 1~4kHz 클러스터, 눌린 모양이 남았다가 서서히 복원 */
 const crunchToy = addToy({
-  name: '크런치 각설탕', short: '크런치', emoji: '🍬', type: 'slime', R: .95,
+  name: '크런치 각설탕', short: '크런치', emoji: '🍬', type: 'slime', R: .95, ao: .5,
   hint: '와그작! 누를수록 촘촘한 뽀득 소리',
   geo: cubeGeo(1.6, 1.3, 1.6, .38), mat: slimeMat('#ffb3d1'), pos: [3.5, -.4], rotY: .4,
   phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22, goo: .22 },
@@ -835,7 +898,7 @@ const crunchToy = addToy({
 
 /* 4. 저반발 스퀴시 — 거의 무음이 매력 (다른 애들의 대비) */
 addToy({
-  name: '몰캉 스퀴시', short: '스퀴시', emoji: '🥝', type: 'slow', R: 1.15,
+  name: '몰캉 스퀴시', short: '스퀴시', emoji: '🥝', type: 'slow', R: 1.15, ao: .9,
   hint: '꾸-욱 눌렀다 떼면 3초 동안 천천히 올라와요',
   geo: blobGeo(1.15, .88, .16, .05, 20), pos: [-2.3, -2.7], rotY: -.3,
   mat: new THREE.MeshPhysicalMaterial({ // PU폼 무광 벨벳
@@ -850,13 +913,13 @@ addToy({
 const jellySfx = { wet: .65, bubbles: 1, pitch: 1.35, low: .8, release: 'jelly', vol: .9 };
 const jellyPhys = { k: 180, c: 2.8, press: .26, maxStretch: 1.15, grabR: 1.1, snap: 26, goo: .3 };
 const jApple = addToy({
-  name: '젤리 사과', short: '사과젤리', emoji: '🍎', type: 'jelly', R: 1.05,
+  name: '젤리 사과', short: '사과젤리', emoji: '🍎', type: 'jelly', R: 1.05, ao: .25,
   hint: '탱글탱글! 당겼다 놓아보세요',
   geo: blobGeo(1.05, .92, .2, 0, 20), mat: jelly('#e8402e', '#ffb0a0'), pos: [2.3, -2.7],
   phys: jellyPhys, sfx: jellySfx
 });
 const jPeach = addToy({
-  name: '복숭아 젤리', short: '복숭아젤리', emoji: '🍑', type: 'jelly', R: .85,
+  name: '복숭아 젤리', short: '복숭아젤리', emoji: '🍑', type: 'jelly', R: .85, ao: .25,
   hint: '말캉! 젤리 큐브를 조물조물',
   geo: cubeGeo(1.35, 1.35, 1.35, .4), mat: jelly('#ee6a9a', '#ffc2d6'), pos: [0, 3.6], rotY: .3,
   phys: jellyPhys, sfx: jellySfx
@@ -864,7 +927,7 @@ const jPeach = addToy({
 
 /* 7. 우파루파 슬랑이 — 파스텔 핑크, 아가미 프릴 달린 스트레치 실리콘 */
 const slang = addToy({
-  name: '우파루파 슬랑이', short: '우파', emoji: '🦎', type: 'slang', R: .9,
+  name: '우파루파 슬랑이', short: '우파', emoji: '🦎', type: 'slang', R: .9, ao: .35,
   hint: '쭈-욱 당겨보세요! 3배까지 늘어나요',
   geo: slangGeo(), pos: [-2.6, 2.4], rotY: .5,
   mat: new THREE.MeshPhysicalMaterial({
@@ -878,7 +941,7 @@ const slang = addToy({
 
 /* 8. 왁뿌볼 청사과 — 광택 왁스 껍질 속 매트한 점토 (아트박스 스타일) */
 const waxInner = addToy({
-  name: '왁뿌볼 청사과', short: '왁뿌볼', emoji: '🍏', type: 'wax', R: 1.05,
+  name: '왁뿌볼 청사과', short: '왁뿌볼', emoji: '🍏', type: 'wax', R: 1.05, ao: .65,
   hint: '톡톡! 두드려서 왁스 껍질을 와그작 깨보세요',
   geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
   mat: new THREE.MeshStandardMaterial({ color: '#ffe3ae', roughness: .9, envMapIntensity: .35 }), // 속심=매트 점토(하이라이트에 안 날아가게 크림톤)
@@ -939,6 +1002,24 @@ const waxInner = addToy({
       const gill = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), gillMat);
       gill.scale.set(.5, .5, 1.7);
       slang.addDeco(new THREE.Vector3(.75 + gI * .18, .42 + gI * .04, side * (.42 - gI * .06)), .05, gill, true);
+    }
+  }
+}
+
+/* ---- 데코: 왕치즈·우파 몸속 글리터 ---- */
+{
+  const gGeo = new THREE.OctahedronGeometry(.05);
+  const gCols = ['#ffd700', '#ff9ec9', '#c0e8ff', '#ffffff'];
+  for (const t of [toys[0], slang]) {
+    for (let i = 0; i < 12; i++) {
+      const vi = (Math.random() * t.count) | 0;
+      _v1.set(t.base[vi * 3], t.base[vi * 3 + 1], t.base[vi * 3 + 2]);
+      const m = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({
+        color: gCols[(Math.random() * gCols.length) | 0], metalness: 1, roughness: .25
+      }));
+      m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      m.scale.setScalar(.6 + Math.random() * .8);
+      t.addDeco(_v1.clone(), -(.12 + Math.random() * .28), m);
     }
   }
 }
@@ -1186,6 +1267,31 @@ const Dust = (() => {
     }
   };
 })();
+
+/* 배경 보케: 멀리서 부드럽게 빛나는 파스텔 원 */
+{
+  const defs = [[2.8, .05], [4.6, .035]];
+  for (const [size, amp] of defs) {
+    const N = 7;
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = (Math.random() - .5) * 26;
+      pos[i * 3 + 1] = 2 + Math.random() * 7;
+      pos[i * 3 + 2] = -8 - Math.random() * 9;
+      const warm = Math.random();
+      col[i * 3] = amp; col[i * 3 + 1] = amp * (.8 + warm * .15); col[i * 3 + 2] = amp * (.85 + (1 - warm) * .15);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      size, map: sparkTex, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, vertexColors: true
+    }));
+    pts.frustumCulled = false;
+    scene.add(pts);
+  }
+}
 
 /* ============================== 선택/카메라 ============================== */
 let selected = null;
