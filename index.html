@@ -574,7 +574,7 @@ class SoftToy {
     this.grab = null;
     if (!g) return 0;
     const i = Math.min(1.4, g.mag / this.R);
-    this.wobV += Math.min(1.2, i * 1.1);
+    if (this.type !== 'slow') this.wobV += Math.min(1.2, i * 1.1); // 저반발은 찰랑이지 않는다
     return i;
   }
   reset() {
@@ -662,6 +662,14 @@ class SoftToy {
           dst[i3 + 2] = off[i3 + 2] * keep + az * mix;
         }
         off.set(dst);
+      }
+      /* 바닥 제약: 아무리 당겨도 쟁반 아래로 사라지지 않는다 (눌리면 쟁반에 뭉개짐) */
+      const floorLocal = (.33 - this.mesh.position.y) / Math.max(.2, this.mesh.scale.y);
+      const b = this.base;
+      for (let i = 0; i < n; i++) {
+        const iy = i * 3 + 1;
+        const minOff = floorLocal - b[iy];
+        if (off[iy] < minOff) { off[iy] = minOff; if (vel[iy] < 0) vel[iy] = 0; }
       }
       let e = 0;
       for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
@@ -830,11 +838,11 @@ addToy({
   name: '몰캉 스퀴시', short: '스퀴시', emoji: '🥝', type: 'slow', R: 1.15,
   hint: '꾸-욱 눌렀다 떼면 3초 동안 천천히 올라와요',
   geo: blobGeo(1.15, .88, .16, .05, 20), pos: [-2.3, -2.7], rotY: -.3,
-  mat: new THREE.MeshPhysicalMaterial({
-    color: '#9ecb3f', roughness: .45, clearcoat: .35, clearcoatRoughness: .5,
-    sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#eaffc0'), envMapIntensity: .6
+  mat: new THREE.MeshPhysicalMaterial({ // PU폼 무광 벨벳
+    color: '#96c23c', roughness: .92, clearcoat: 0,
+    sheen: .5, sheenRoughness: .8, sheenColor: new THREE.Color('#d8efa8'), envMapIntensity: .22
   }),
-  phys: { k: 5, c: 5.5, press: .55, maxStretch: 1.1, grabR: 1.3, snap: 10, goo: .5 },
+  phys: { k: 2.2, c: 6, press: .7, maxStretch: 1.1, grabR: 1.35, snap: 10, goo: .45 },
   sfx: { wet: .2, bubbles: .15, foam: 1, pitch: .6, low: 1.2, release: 'foam', vol: .55 }
 });
 
