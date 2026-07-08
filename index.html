@@ -874,7 +874,7 @@ const waxInner = addToy({
   hint: '톡톡! 두드려서 왁스 껍질을 와그작 깨보세요',
   geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
   mat: new THREE.MeshStandardMaterial({ color: '#ffe3ae', roughness: .9, envMapIntensity: .35 }), // 속심=매트 점토(하이라이트에 안 날아가게 크림톤)
-  phys: { k: 14, c: 8, press: .55, maxStretch: 1.3, grabR: 1.3, snap: 12, goo: .5 },
+  phys: { k: 8, c: 7, press: .6, maxStretch: 1.35, grabR: 1.35, snap: 18, goo: .55 },
   sfx: { wet: .3, bubbles: .2, foam: .6, pitch: .55, low: 1, release: 'foam', vol: .7 }
 });
 
@@ -987,7 +987,7 @@ const WaxShell = {
     if (!this.mesh) return;
     this.mesh.position.copy(this.toy.mesh.position);
     this.mesh.rotation.copy(this.toy.mesh.rotation);
-    this.mesh.scale.setScalar(this.toy.focusScale);
+    this.mesh.scale.copy(this.toy.mesh.scale); // 속심의 숨쉬기/움찔거림을 껍질도 따라가야 살아있는 느낌
     this.mesh.visible = this.aliveCount > 0;
   },
   chipAt(worldPoint, radius) {
@@ -1290,9 +1290,10 @@ const GREEN_PUFF = [[.55, 1, .6], [.75, 1, .78], [1, 1, 1]];
 function doChip(g, worldPoint) {
   const toy = g.toy;
   const first = WaxShell.aliveCount === WaxShell.faceCount;
-  const removed = WaxShell.chipAt(worldPoint, toy.R * .38);
+  const removed = WaxShell.chipAt(worldPoint, toy.R * .46);
   if (!removed) return;
-  Sound.crack(Math.min(1, removed / 10), toy.mesh.position.x, first);
+  toy.wobV += first ? .9 : .6; // 두드릴 때마다 공이 물컹 움츠러든다
+  Sound.crack(Math.min(1, removed / 14), toy.mesh.position.x, first);
   Burst.burst(worldPoint, first ? 16 : 5, first ? .9 : .5, GREEN_PUFF);
   navigator.vibrate?.(first ? 30 : 14);
   if (first) toast('와그작! 🍏 사과향이 퍼져요');
@@ -1376,7 +1377,7 @@ function onMove(e) {
 
   if (g.mode === 'chip') {
     const now = performance.now();
-    if (now - g.lastChipT < 130) return;
+    if (now - g.lastChipT < 100) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     if (!WaxShell.mesh.visible) return;
