@@ -626,7 +626,7 @@ class SoftToy {
     this.grab = null;
     if (!g) return 0;
     const i = Math.min(1.4, g.mag / this.R);
-    if (this.type !== 'slow') this.wobV += Math.min(1.2, i * 1.1); // 저반발은 찰랑이지 않는다
+    if (this.type !== 'slow' && !this.phys.plastic) this.wobV += Math.min(1.2, i * 1.1); // 저반발·점토는 찰랑이지 않는다
     return i;
   }
   reset() {
@@ -667,7 +667,7 @@ class SoftToy {
     const n = this.count, off = this.off, vel = this.vel;
     const g = this.grab;
 
-    if (this.active) {
+    if (this.active && !this.phys.plastic) { // 점토(plastic)는 복원 스프링이 없다
       const h = dt / 2, k = this.phys.k, c = this.phys.c;
       for (let s = 0; s < 2; s++) {
         for (let i = 0; i < n; i++) {
@@ -705,9 +705,9 @@ class SoftToy {
     }
 
     if (this.active) {
-      /* 라플라시안 평활 = 점성. 이웃끼리 끌려가며 절벽/각짐 없이 흐물흐물 이어진다 */
+      /* 라플라시안 평활 = 점성. 점토는 잡는 동안만 (놓으면 자국이 영구 보존) */
       const goo = this.phys.goo ?? .35;
-      const iters = goo > .45 ? 2 : 1;
+      const iters = this.phys.plastic && !g ? 0 : (goo > .45 ? 2 : 1);
       const ns = this.nbrStart, nl = this.nbrList, dst = this.tmpOff;
       for (let it = 0; it < iters; it++) {
         for (let i = 0; i < n; i++) {
@@ -733,13 +733,18 @@ class SoftToy {
         const minOff = floorLocal - b[iy];
         if (off[iy] < minOff) { off[iy] = minOff; if (vel[iy] < 0) vel[iy] = 0; }
       }
-      let e = 0;
-      for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
       this.writePositions();
-      if (!g && e < this.count * 3e-7) {
-        off.fill(0); vel.fill(0);
-        this.writePositions();
+      if (this.phys.plastic && !g) { // 점토: 눌린 그대로 굳는다 — 부수면 끝
+        vel.fill(0);
         this.active = false;
+      } else {
+        let e = 0;
+        for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
+        if (!g && e < this.count * 3e-7) {
+          off.fill(0); vel.fill(0);
+          this.writePositions();
+          this.active = false;
+        }
       }
     }
   }
@@ -942,10 +947,10 @@ const slang = addToy({
 /* 8. 왁뿌볼 청사과 — 광택 왁스 껍질 속 매트한 점토 (아트박스 스타일) */
 const waxInner = addToy({
   name: '왁뿌볼 청사과', short: '왁뿌볼', emoji: '🍏', type: 'wax', R: 1.05, ao: .65,
-  hint: '톡톡! 두드려서 왁스 껍질을 와그작 깨보세요',
+  hint: '꾹꾹! 왁스가 부서지며 점토째 눌려요 — 자국은 그대로 남아요',
   geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
   mat: new THREE.MeshStandardMaterial({ color: '#ffe3ae', roughness: .9, envMapIntensity: .35 }), // 속심=매트 점토(하이라이트에 안 날아가게 크림톤)
-  phys: { k: 8, c: 7, press: .6, maxStretch: 1.35, grabR: 1.35, snap: 18, goo: .55 },
+  phys: { k: 0, c: 10, press: .55, maxStretch: .55, grabR: 1.25, snap: 20, goo: .5, plastic: true }, // 점토: 복원 없음, 안 늘어남
   sfx: { wet: .3, bubbles: .2, foam: .6, pitch: .55, low: 1, release: 'foam', vol: .7 }
 });
 
@@ -1423,7 +1428,7 @@ function doChip(g, worldPoint) {
     toast('🎉 껍질 다 깠다! 속말랑이가 나왔어요');
     Burst.burst(toy.mesh.position.clone().setY(toy.mesh.position.y + .5), 30, 1.2);
     spawnHearts(toy.mesh.position, 5);
-    el.hint.textContent = `${toy.emoji} 이제 말랑말랑 만져보세요!`;
+    el.hint.textContent = `${toy.emoji} 점토를 꾹꾹 눌러 모양을 빚어보세요 (↺리셋=새 왁뿌볼)`;
   }
 }
 
@@ -1442,16 +1447,12 @@ function onDown(e) {
   if (!selected || hit.toy !== selected) { select(hit.toy); return; }
 
   const toy = hit.toy;
-  if (toy.type === 'wax' && hit.isShell) {
-    const g = { mode: 'chip', toy, lastChipT: performance.now() };
-    grabs.set(e.pointerId, g);
-    doChip(g, hit.point);
-    return;
-  }
   if (toy.grab) return;
   const hitWorld = hit.point.clone();
   const hitLocal = toy.mesh.worldToLocal(hitWorld.clone());
-  const nLocal = hit.normal ? hit.normal.clone() : new THREE.Vector3(0, 1, 0);
+  /* 껍질 히트면 방사 방향이 가장 안정적인 노멀 */
+  const nLocal = hit.isShell ? hitLocal.clone().normalize()
+    : (hit.normal ? hit.normal.clone() : new THREE.Vector3(0, 1, 0));
   toy.startGrab(hitLocal, nLocal, performance.now() / 1000);
   const camDir = camera.getWorldDirection(_v1).clone();
   grabs.set(e.pointerId, {
@@ -1459,8 +1460,10 @@ function onDown(e) {
     plane: new THREE.Plane().setFromNormalAndCoplanarPoint(camDir.negate(), hitWorld),
     lastWorld: hitWorld.clone(), lastT: performance.now(),
     acc: 0, lastGrainT: 0, lastMag: 0,
+    waxChip: toy.type === 'wax', lastChipT: 0,
     bed: Sound.bed(toy.sfx, toy.mesh.position.x) // 만지는 동안 흐르는 연속음
   });
+  if (toy.type === 'wax') doChip(grabs.get(e.pointerId), hitWorld); // 누르는 순간 그 자리 왁스가 부서진다
   Sound.press(toy.sfx, .28 + Math.random() * .14, toy.mesh.position.x);
   Burst.burst(hitWorld, 7, .5);
   navigator.vibrate?.(10);
@@ -1496,17 +1499,6 @@ function onMove(e) {
   }
   e.preventDefault();
 
-  if (g.mode === 'chip') {
-    const now = performance.now();
-    if (now - g.lastChipT < 100) return;
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-    raycaster.setFromCamera(ndc, camera);
-    if (!WaxShell.mesh.visible) return;
-    const hits = raycaster.intersectObject(WaxShell.mesh, false);
-    if (hits.length) { g.lastChipT = now; doChip(g, hits[0].point); }
-    return;
-  }
-
   const toy = g.toy, grab = toy.grab;
   if (!grab) return;
   ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -1523,6 +1515,10 @@ function onMove(e) {
   const speed = moved / Math.max(1, now - g.lastT) * 1000;
   g.lastWorld.copy(_v1); g.lastT = now;
   Sound.bedMove(g.bed, speed); // 연속음이 손 속도를 따라간다
+  if (g.waxChip && now - g.lastChipT > 110) { // 누른 채 문지르면 그 경로의 왁스가 계속 부서진다
+    g.lastChipT = now;
+    doChip(g, _v1);
+  }
   if (g.acc > .3 && now - g.lastGrainT > 90) {
     g.lastGrainT = now; g.acc = 0;
     Sound.drag(toy.sfx, Math.min(.8, .12 + speed * .06), toy.mesh.position.x);
@@ -1540,7 +1536,6 @@ function onUp(e) {
   grabs.delete(e.pointerId);
   canvas.style.cursor = 'default';
   Sound.bedStop(g.bed);
-  if (g.mode === 'chip') return;
   const toy = g.toy;
   const gg = toy.grab;
   const releaseWorld = gg
