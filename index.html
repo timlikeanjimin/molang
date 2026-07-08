@@ -547,7 +547,7 @@ class SoftToy {
     this.minY = geo.boundingBox.min.y;
     this.geo = geo;
     this.mesh = new THREE.Mesh(geo, cfg.mat);
-    this.bottomY = .31;
+    this.bottomY = .385; // 쟁반 윗면(.38) 바로 위
     this.mesh.position.set(cfg.pos[0], this.bottomY - this.minY, cfg.pos[1]);
     this.mesh.rotation.y = cfg.rotY || 0;
     this.mesh.castShadow = true;
@@ -726,7 +726,7 @@ class SoftToy {
         off.set(dst);
       }
       /* 바닥 제약: 아무리 당겨도 쟁반 아래로 사라지지 않는다 (눌리면 쟁반에 뭉개짐) */
-      const floorLocal = (.33 - this.mesh.position.y) / Math.max(.2, this.mesh.scale.y);
+      const floorLocal = (.38 - this.mesh.position.y) / Math.max(.2, this.mesh.scale.y);
       const b = this.base;
       for (let i = 0; i < n; i++) {
         const iy = i * 3 + 1;
@@ -874,7 +874,7 @@ addToy({
   name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05, ao: .3,
   hint: '쭈-욱 3배로 늘려보세요 · 찌-익 찐득 필링',
   geo: cheeseGeo(), mat: jelly('#e8a018', '#ffd98a'), pos: [0, -.2], rotY: .15,
-  phys: { k: 26, c: 10, press: .4, maxStretch: 2.8, grabR: 1.5, snap: 12, goo: .5 },
+  phys: { k: 26, c: 10, press: .4, maxStretch: 2.2, grabR: 1.5, snap: 12, goo: .5 },
   sfx: { wet: .8, bubbles: .35, sticky: .65, pitch: .6, low: 1, release: 'slap', vol: .85 }
 });
 
@@ -933,9 +933,9 @@ const slang = addToy({
   mat: new THREE.MeshPhysicalMaterial({
     color: '#ffb6d3', transmission: .55, thickness: .8, roughness: .3, ior: 1.4,
     attenuationColor: new THREE.Color('#ff7fb0'), attenuationDistance: 2.5,
-    clearcoat: .8, clearcoatRoughness: .3, envMapIntensity: .7
+    clearcoat: .8, clearcoatRoughness: .3, envMapIntensity: .7, side: THREE.DoubleSide
   }),
-  phys: { k: 32, c: 5, press: .3, maxStretch: 3.2, grabR: 1.7, snap: 14, goo: .45 },
+  phys: { k: 32, c: 5, press: .3, maxStretch: 2.4, grabR: 1.7, snap: 14, goo: .5 },
   sfx: { wet: .5, bubbles: .4, sticky: 1, pitch: 1, low: .9, release: 'slap' }
 });
 
@@ -1018,8 +1018,8 @@ const waxInner = addToy({
         color: gCols[(Math.random() * gCols.length) | 0], metalness: 1, roughness: .25
       }));
       m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-      m.scale.setScalar(.6 + Math.random() * .8);
-      t.addDeco(_v1.clone(), -(.12 + Math.random() * .28), m);
+      m.scale.setScalar(.5 + Math.random() * .6);
+      t.addDeco(_v1.clone(), -(.1 + Math.random() * .1), m); // 얕게 — 얇은 부위에서 삐져나오지 않게
     }
   }
 }
@@ -1030,14 +1030,21 @@ const toyMeshes = toys.map(t => t.mesh);
 const WaxShell = {
   toy: waxInner, mesh: null, aliveCount: 0, faceCount: 0, alive: null, orig: null, centroids: null,
   build() {
-    const geo = new THREE.IcosahedronGeometry(1.0 * 1.09, 5); // non-indexed 삼각형 수프 (720조각)
+    const geo = new THREE.IcosahedronGeometry(1.0 * 1.09, 6); // non-indexed 삼각형 수프 (980조각)
     const p = geo.attributes.position;
-    for (let i = 0; i < p.count; i++) { // 손으로 담근 왁스 느낌: 울퉁불퉁
+    for (let i = 0; i < p.count; i++) { // 손으로 담근 왁스: 아주 은은한 요철만
       _v1.set(p.getX(i), p.getY(i), p.getZ(i));
-      const s = 1 + .05 * Math.sin(5.1 * _v1.x + 1.2) * Math.sin(4.3 * _v1.y) * Math.sin(3.7 * _v1.z + 2);
+      const s = 1 + .018 * Math.sin(5.1 * _v1.x + 1.2) * Math.sin(4.3 * _v1.y) * Math.sin(3.7 * _v1.z + 2);
       p.setXYZ(i, _v1.x * s, _v1.y * s * .98, _v1.z * s);
     }
     geo.computeVertexNormals();
+    { /* 삼각형 수프는 플랫 노멀이 나온다 → 구형이므로 위치 정규화로 매끈한 노멀 */
+      const nor = geo.attributes.normal;
+      for (let i = 0; i < p.count; i++) {
+        _v1.set(p.getX(i), p.getY(i), p.getZ(i)).normalize();
+        nor.setXYZ(i, _v1.x, _v1.y, _v1.z);
+      }
+    }
     this.geo = geo;
     this.faceCount = p.count / 3;
     this.alive = new Uint8Array(this.faceCount).fill(1);
@@ -1052,7 +1059,7 @@ const WaxShell = {
     /* 아트박스 청사과: 크리스마스 오너먼트 같은 광택 초록 왁스 */
     const mat = new THREE.MeshPhysicalMaterial({
       color: '#3fbf4f', roughness: .12, clearcoat: 1, clearcoatRoughness: .12,
-      flatShading: true, side: THREE.DoubleSide, envMapIntensity: 1
+      side: THREE.DoubleSide, envMapIntensity: 1 // 오너먼트처럼 매끈한 광택
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.castShadow = true;
