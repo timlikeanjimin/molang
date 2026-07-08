@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>몰랑 스튜디오 — 슬라임 ASMR</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif;user-select:none;-webkit-user-select:none;background:#ffe9f0}
+  #c{position:fixed;inset:0;display:block;touch-action:none;cursor:default}
+  .glass{background:rgba(255,255,255,.62);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.7);box-shadow:0 8px 24px rgba(255,120,170,.18)}
+  #title{position:fixed;top:16px;left:18px;z-index:10;pointer-events:none;padding:11px 16px;border-radius:20px}
+  #title h1{font-size:20px;font-weight:800;color:#e35d8f;letter-spacing:-.5px}
+  #title p{font-size:11px;color:#b98a9c;margin-top:2px;font-weight:600}
+  #countWrap{position:fixed;top:18px;right:16px;z-index:10;padding:9px 16px;border-radius:999px;font-size:14px;font-weight:800;color:#e35d8f;pointer-events:none}
+  #countWrap.bump{animation:bump .3s ease}
+  @keyframes bump{40%{transform:scale(1.22)}}
+  #bar{position:fixed;top:64px;right:16px;z-index:10;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px}
+  #bar button{border:none;background:rgba(255,182,208,.35);border-radius:999px;padding:6px 10px;font-size:14px;font-weight:700;color:#d45585;cursor:pointer;transition:transform .15s,background .15s;white-space:nowrap}
+  #bar button:hover{transform:scale(1.07);background:rgba(255,182,208,.6)}
+  #vol{width:80px;accent-color:#f56ea0;cursor:pointer}
+  #back{position:fixed;top:64px;left:18px;z-index:10;border:none;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:800;color:#d45585;cursor:pointer;display:none}
+  #back:hover{transform:scale(1.05)}
+  #hint{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);z-index:10;padding:9px 20px;border-radius:999px;font-size:13px;font-weight:700;color:#c96d92;pointer-events:none;transition:opacity .5s;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+  #chips{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:6px;padding:8px 10px;border-radius:999px;max-width:94vw;overflow-x:auto;scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  #chips button{border:none;background:rgba(255,182,208,.25);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;color:#c96d92;cursor:pointer;white-space:nowrap;transition:transform .15s,background .15s;flex:0 0 auto}
+  #chips button:hover{transform:scale(1.06)}
+  #chips button.on{background:#f56ea0;color:#fff;box-shadow:0 4px 12px rgba(245,110,160,.45)}
+  #tip{position:fixed;z-index:20;padding:7px 14px;border-radius:999px;font-size:13px;font-weight:700;color:#d45585;pointer-events:none;display:none;white-space:nowrap}
+  .heart{position:fixed;z-index:30;pointer-events:none;font-size:22px;animation:heartUp 1.15s ease-out forwards}
+  @keyframes heartUp{0%{opacity:0;transform:translate(-50%,0) scale(.4) rotate(var(--r))}18%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),-120px) scale(1.3) rotate(var(--r))}}
+  #toast{position:fixed;top:120px;left:50%;transform:translateX(-50%);z-index:10;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:700;color:#c96d92;opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+  #offline{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(255,236,243,.96)}
+  #offline .card{max-width:340px;text-align:center;padding:34px 30px;border-radius:26px;background:#fff;box-shadow:0 16px 44px rgba(230,110,160,.25)}
+  #offline .card b{font-size:18px;color:#e35d8f}
+  #offline .card p{font-size:14px;color:#a08691;margin-top:10px;line-height:1.6}
+  @media (max-width:640px){
+    #title{top:10px;left:10px;padding:8px 12px}#title h1{font-size:16px}#title p{font-size:9px}
+    #countWrap{top:12px;right:10px;font-size:12px;padding:7px 12px}
+    #bar{top:54px;right:10px}#vol{width:56px}
+    #back{top:54px;left:10px;font-size:12px}
+    #hint{font-size:11px;bottom:80px;padding:8px 14px}
+    #chips button{font-size:12px;padding:6px 10px}
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title" class="glass"><h1>몰랑 스튜디오</h1><p>슬라임 · 스퀴시 · 슬랑이 · 왁뿌볼 ASMR 놀이터</p></div>
+<div id="countWrap" class="glass">🫧 <span id="count">0</span> 몰랑</div>
+<div id="bar" class="glass">
+  <button id="mute" title="소리 켜기/끄기">🔊</button>
+  <input id="vol" type="range" min="0" max="100" value="80" title="볼륨">
+  <button id="reset" title="모두 처음 모양으로">↺ 리셋</button>
+</div>
+<button id="back" class="glass">⊙ 전체 보기</button>
+<div id="hint" class="glass">👇 아래에서 만지고 싶은 아이를 골라보세요</div>
+<div id="chips" class="glass"></div>
+<div id="tip" class="glass"></div>
+<div id="toast" class="glass">🔊 소리가 켜졌어요 — 이어폰 추천!</div>
+<div id="offline"><div class="card"><b>인터넷 연결이 필요해요 🥲</b><p>3D 라이브러리를 불러오지 못했어요.<br>연결을 확인한 뒤 새로고침(F5) 해주세요.</p></div></div>
+
+<script>
+  window.addEventListener('load', () => setTimeout(() => {
+    if (!window.__slimeBooted && !document.hidden) document.getElementById('offline').style.display = 'flex';
+  }, 6000));
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* localStorage는 사파리 프라이빗 모드에서 throw 가능 */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+
+/* ============================== 사운드 엔진 ==============================
+   장난감마다 sfx 프로필(wet/crunch/sticky/foam/bubbles/pitch/low/release)이 달라
+   같은 동작이라도 전혀 다른 소리가 난다. */
+const Sound = {
+  ctx: null, bus: null, master: null, noise: null,
+  vol: Math.min(1, Math.max(0, parseFloat(store.get('slime-vol') ?? '0.8'))),
+  muted: store.get('slime-mute') === '1',
+  init() {
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {}); return; }
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    const ctx = this.ctx = new C();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 22; comp.ratio.value = 6;
+    comp.attack.value = .004; comp.release.value = .16;
+    const master = ctx.createGain();
+    master.gain.value = this.muted ? 0 : this.vol;
+    comp.connect(master); master.connect(ctx.destination);
+    this.master = master;
+    const bus = ctx.createGain();
+    bus.connect(comp);
+    const conv = ctx.createConvolver();
+    conv.buffer = this.impulse(1.7, 2.6);
+    const wet = ctx.createGain(); wet.gain.value = .07; // ASMR은 드라이 클로즈마이크가 생명
+
+    bus.connect(conv); conv.connect(wet); wet.connect(comp);
+    this.bus = bus;
+    const len = ctx.sampleRate * 1.5;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.noise = buf;
+  },
+  impulse(sec, decay) {
+    const ctx = this.ctx, rate = ctx.sampleRate, len = rate * sec;
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  },
+  env(g, t, a, peak, dec) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(Math.max(0.0002, peak), t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec);
+  },
+  pan(x) {
+    const p = this.ctx.createStereoPanner();
+    // 위치 + 랜덤 지터 = 바이노럴 근접감 흉내
+    p.pan.value = Math.max(-.8, Math.min(.8, x / 6 + (Math.random() - .5) * .22));
+    p.connect(this.bus);
+    return p;
+  },
+  setVol(v) { this.vol = v; store.set('slime-vol', String(v)); if (this.master && !this.muted) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, .05); },
+  setMute(m) { this.muted = m; store.set('slime-mute', m ? '1' : '0'); if (this.master) this.master.gain.setTargetAtTime(m ? 0 : this.vol, this.ctx.currentTime, .03); },
+
+  /* ---- 레이어 ---- */
+  thump(t, out, i, pitch = 1) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime((70 + i * 70 + Math.random() * 25) * pitch, t);
+    o.frequency.exponentialRampToValueAtTime(36 * pitch, t + .13);
+    const g = ctx.createGain(); this.env(g, t, .004, .05 + .2 * i, .12);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + .25);
+  },
+  squelch(t, out, i, pitch = 1, mul = 1) {
+    const ctx = this.ctx;
+    for (let k = 0; k < 2; k++) {
+      const src = ctx.createBufferSource(); src.buffer = this.noise;
+      src.playbackRate.value = .6 + Math.random() * .8;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+      bp.Q.value = 1.6 + Math.random() * 2;
+      const t0 = t + k * .018;
+      bp.frequency.setValueAtTime((380 + Math.random() * 900 * (.5 + i)) * pitch, t0);
+      bp.frequency.exponentialRampToValueAtTime((110 + Math.random() * 90) * pitch, t0 + .09 + .09 * i);
+      const g = ctx.createGain();
+      this.env(g, t0, .006, (.09 + .13 * i) * (k ? .55 : 1) * mul, .1 + .13 * i);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t0, Math.random()); src.stop(t0 + .5);
+    }
+  },
+  pops(t, out, i, pitch = 1, mul = 1) {
+    const ctx = this.ctx;
+    const nb = Math.round((1 + Math.random() * 2 + i * 2.2) * Math.min(1.5, mul));
+    for (let k = 0; k < nb; k++) {
+      const d0 = Math.random() * (.05 + .1 * i);
+      const f = (350 + Math.random() * 1100) * pitch;
+      const b = ctx.createOscillator(); b.type = 'sine';
+      b.frequency.setValueAtTime(f, t + d0);
+      b.frequency.exponentialRampToValueAtTime(f * (1.7 + Math.random() * .9), t + d0 + .045);
+      const g = ctx.createGain();
+      this.env(g, t + d0, .003, (.04 + .06 * Math.random() + .05 * i) * mul, .05);
+      b.connect(g); g.connect(out); b.start(t + d0); b.stop(t + d0 + .13);
+    }
+  },
+  /* 크런치 슬라임 뽀득/바삭 */
+  crunchG(t, out, i, mul = 1, pitch = 1) {
+    const ctx = this.ctx;
+    const n = 3 + Math.round(i * 5);
+    for (let k = 0; k < n; k++) {
+      const d0 = Math.random() * (.05 + .06 * i);
+      const src = ctx.createBufferSource(); src.buffer = this.noise;
+      src.playbackRate.value = 1 + Math.random();
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.value = (1200 + Math.random() * 2200) * pitch; bp.Q.value = 3.5;
+      const g = ctx.createGain();
+      this.env(g, t + d0, .001, (.05 + .05 * Math.random()) * mul * (0.6 + i * .6), .018 + Math.random() * .02);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t + d0, Math.random()); src.stop(t + d0 + .07);
+    }
+  },
+  /* 슬랑이 찐득 필링 */
+  ticksG(t, out, i, mul = 1) {
+    const ctx = this.ctx;
+    const n = 2 + Math.round(i * 3);
+    for (let k = 0; k < n; k++) {
+      const d0 = k * .028 + Math.random() * .02;
+      const src = ctx.createBufferSource(); src.buffer = this.noise;
+      src.playbackRate.value = .8 + Math.random() * .5;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.value = 480 + Math.random() * 450; bp.Q.value = 6;
+      const g = ctx.createGain();
+      this.env(g, t + d0, .002, .06 * mul, .03);
+      src.connect(bp); bp.connect(g); g.connect(out);
+      src.start(t + d0, Math.random()); src.stop(t + d0 + .07);
+    }
+    const c = ctx.createOscillator(); c.type = 'sine';
+    c.frequency.setValueAtTime(880 + Math.random() * 200, t);
+    c.frequency.exponentialRampToValueAtTime(460, t + .07);
+    const cg = ctx.createGain(); this.env(cg, t, .004, .035 * mul * i, .06);
+    c.connect(cg); cg.connect(out); c.start(t); c.stop(t + .12);
+  },
+  foamG(t, out, i, mul = 1) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noise; src.playbackRate.value = .5;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 430;
+    const g = ctx.createGain(); this.env(g, t, .015, (.05 + .09 * i) * mul, .4);
+    src.connect(lp); lp.connect(g); g.connect(out);
+    src.start(t, Math.random()); src.stop(t + .6);
+  },
+
+  /* ---- 장난감 API: sfx 프로필로 레이어 조합 ---- */
+  press(sfx, i, x) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x), p = sfx.pitch, v = sfx.vol ?? 1;
+    this.thump(t, out, i * (sfx.low ?? 1) * v, p);
+    if (sfx.wet) { this.squelch(t, out, i, p, sfx.wet * v); this.pops(t, out, i, p, (sfx.bubbles ?? 1) * .9 * v); }
+    if (sfx.crunch) this.crunchG(t, out, i, sfx.crunch * v, p);
+    if (sfx.sticky) this.ticksG(t, out, i * .7, sfx.sticky * .7 * v);
+    if (sfx.foam) this.foamG(t, out, i, sfx.foam * v);
+  },
+  drag(sfx, i, x) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x), p = sfx.pitch, v = sfx.vol ?? 1;
+    if (sfx.wet) { this.squelch(t, out, i * .7, p, sfx.wet * .8 * v); if (Math.random() < .6) this.pops(t, out, i * .6, p, (sfx.bubbles ?? 1) * .6 * v); }
+    if (sfx.crunch) this.crunchG(t, out, i, sfx.crunch * .9 * v, p);
+    if (sfx.sticky) this.ticksG(t, out, i, sfx.sticky * v);
+    if (sfx.foam && Math.random() < .5) this.foamG(t, out, i * .6, sfx.foam * .6 * v);
+  },
+  stretchTick(sfx, x) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x);
+    if (sfx.sticky) { this.ticksG(t, out, .8, sfx.sticky); return; }
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    src.playbackRate.value = 1.4 + Math.random();
+    const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2300 + Math.random() * 1500;
+    const g = this.ctx.createGain(); this.env(g, t, .001, .028 + .03 * Math.random(), .03);
+    src.connect(hp); hp.connect(g); g.connect(out);
+    src.start(t, Math.random()); src.stop(t + .06);
+  },
+  release(sfx, i, x) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x), p = sfx.pitch, v = sfx.vol ?? 1;
+    const style = sfx.release || 'boing';
+    if (style === 'foam') { this.foamG(t, out, .3 + i * .6, 1.2 * v); this.pops(t, out, i * .4, p * .7, .5 * v); return; }
+    if (style === 'crunch') { /* 크런치: 튕김 없이 알갱이가 자잘하게 가라앉는 소리 */
+      this.crunchG(t, out, i * .8, (sfx.crunch ?? 1) * .8 * v, p);
+      this.crunchG(t + .12, out, i * .4, (sfx.crunch ?? 1) * .45 * v, p);
+      this.thump(t, out, i * .4 * v, p);
+      return;
+    }
+    if (style === 'slap') {
+      this.thump(t, out, Math.min(1, .3 + i) * v, p * .9);
+      this.squelch(t, out, i * .8, p, .8 * v);
+      this.ticksG(t + .03, out, i, 1 * v);
+      return;
+    }
+    /* boing / jelly */
+    const jelly = style === 'jelly';
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = jelly ? 1900 : 1300; lp.connect(out);
+    const f0 = (jelly ? 210 : 145) + (jelly ? 130 : 95) * i;
+    [1, 1.52].forEach((m, idx) => {
+      const o = this.ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(f0 * m * 1.18 * p, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * m * .8 * p, t + (jelly ? .22 : .3));
+      const lfo = this.ctx.createOscillator(); lfo.frequency.value = (jelly ? 9 : 6.5) + 4.5 * i;
+      const lg = this.ctx.createGain(); lg.gain.value = f0 * m * .06;
+      lfo.connect(lg); lg.connect(o.frequency);
+      const og = this.ctx.createGain();
+      this.env(og, t, .006, (.12 + .15 * i) * (idx ? .38 : 1), jelly ? .24 : .34);
+      o.connect(og); og.connect(lp);
+      o.start(t); o.stop(t + .45); lfo.start(t); lfo.stop(t + .45);
+    });
+    if (jelly) { /* 글룩: 위로 미끄러지는 물방울 블룹 */
+      const gl = this.ctx.createOscillator(); gl.type = 'sine';
+      gl.frequency.setValueAtTime(140 + 70 * i, t);
+      gl.frequency.exponentialRampToValueAtTime(270 + 90 * i, t + .12);
+      const gg = this.ctx.createGain(); this.env(gg, t, .01, .1 * v, .16);
+      gl.connect(gg); gg.connect(out); gl.start(t); gl.stop(t + .25);
+    }
+    if (sfx.wet) this.squelch(t, out, i * .5, p, sfx.wet * .7 * v);
+    if (sfx.crunch) this.crunchG(t, out, i * .8, sfx.crunch * .8 * v, p);
+  },
+  /* 왁뿌볼 껍질 깨기: 뿌직! first=첫 크랙(제일 큰 와그작, 속심이 울림을 먹어 둔탁) */
+  crack(i, x, first = false) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, out = this.pan(x);
+    const boost = first ? 1.7 : 1;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    src.playbackRate.value = 1.6;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = first ? 1100 : 1600;
+    const g = ctx.createGain(); this.env(g, t, .001, (.22 + .15 * i) * boost, first ? .06 : .035);
+    src.connect(hp); hp.connect(g); g.connect(out);
+    src.start(t, Math.random()); src.stop(t + .1);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(240 * (0.9 + Math.random() * .25), t);
+    o.frequency.exponentialRampToValueAtTime(110, t + .05);
+    const og = ctx.createGain(); this.env(og, t, .002, .2 * boost, .07);
+    o.connect(og); og.connect(out); o.start(t); o.stop(t + .15);
+    if (first) { /* 서브 썸: 몸통 울림 */
+      const s = ctx.createOscillator(); s.type = 'sine';
+      s.frequency.setValueAtTime(150, t);
+      s.frequency.exponentialRampToValueAtTime(70, t + .12);
+      const sg = ctx.createGain(); this.env(sg, t, .003, .3, .14);
+      s.connect(sg); sg.connect(out); s.start(t); s.stop(t + .25);
+    }
+    /* 부스러기: 2~7kHz 불규칙 클릭 */
+    const n = 3 + Math.round(Math.random() * 3 + i * 2);
+    for (let k = 0; k < n; k++) {
+      const d0 = .02 + Math.random() * .12;
+      const s2 = ctx.createBufferSource(); s2.buffer = this.noise;
+      s2.playbackRate.value = 1 + Math.random();
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.value = 2000 + Math.random() * 4500; bp.Q.value = 3;
+      const g2 = ctx.createGain(); this.env(g2, t + d0, .001, .04 + .04 * Math.random(), .02);
+      s2.connect(bp); bp.connect(g2); g2.connect(out);
+      s2.start(t + d0, Math.random()); s2.stop(t + d0 + .05);
+    }
+  },
+  pluck(x = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, out = this.pan(x);
+    const o = this.ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(520, t);
+    o.frequency.exponentialRampToValueAtTime(760, t + .07);
+    const g = this.ctx.createGain(); this.env(g, t, .005, .08, .1);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + .2);
+  }
+};
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Sound.ctx && Sound.ctx.state !== 'running') Sound.ctx.resume().catch(() => {});
+});
+
+/* ============================== 렌더러/씬 ============================== */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+{
+  const bg = document.createElement('canvas'); bg.width = 16; bg.height = 256;
+  const g = bg.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#fff8f2'); gr.addColorStop(.55, '#ffe9ef'); gr.addColorStop(1, '#ffd8e5');
+  g.fillStyle = gr; g.fillRect(0, 0, 16, 256);
+  const tex = new THREE.CanvasTexture(bg);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+}
+scene.fog = new THREE.Fog('#ffdde8', 20, 42);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, .1, 100);
+const camFit = Math.max(1, Math.sqrt(1.5 / (innerWidth / innerHeight)));
+const HOME = { pos: new THREE.Vector3(0, 7.4 * camFit, 11.6 * camFit), target: new THREE.Vector3(0, .7, 0) };
+camera.position.copy(HOME.pos);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+pmrem.dispose();
+
+const key = new THREE.DirectionalLight('#fff1e0', 2.4);
+key.position.set(5, 10, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = key.shadow.camera.bottom = -8;
+key.shadow.camera.right = key.shadow.camera.top = 8;
+key.shadow.camera.near = 1; key.shadow.camera.far = 30;
+key.shadow.bias = -.0002;
+scene.add(key);
+scene.add(new THREE.DirectionalLight('#ffd9e8', .7).translateX(-6).translateY(4).translateZ(-6));
+scene.add(new THREE.HemisphereLight('#fff6ee', '#ffcfe0', .55));
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.copy(HOME.target);
+controls.enableDamping = true;
+controls.dampingFactor = .06;
+controls.enablePan = false;
+controls.minDistance = 6; controls.maxDistance = 22;
+controls.minPolarAngle = .4; controls.maxPolarAngle = 1.4;
+
+function woodTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c99a68'; g.fillRect(0, 0, 512, 512);
+  for (let r = 8; r < 400; r += 7 + Math.random() * 16) {
+    g.strokeStyle = `rgba(120,72,36,${.06 + Math.random() * .13})`;
+    g.lineWidth = 2 + Math.random() * 6;
+    g.beginPath();
+    g.ellipse(256, 256, r, r * (0.92 + Math.random() * .06), Math.random() * .2, 0, Math.PI * 2);
+    g.stroke();
+  }
+  for (let i = 0; i < 900; i++) {
+    const a = Math.random() * Math.PI * 2, rr = Math.random() * 250;
+    g.strokeStyle = `rgba(90,50,25,${Math.random() * .05})`;
+    g.lineWidth = 1;
+    g.beginPath();
+    const x = 256 + Math.cos(a) * rr, y = 256 + Math.sin(a) * rr;
+    g.moveTo(x, y); g.lineTo(x + Math.cos(a + 1.57) * (4 + Math.random() * 14), y + Math.sin(a + 1.57) * (4 + Math.random() * 14));
+    g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+{
+  const wood = new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: .55, metalness: 0 });
+  const tray = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.65, .38, 64), wood);
+  tray.position.y = .19;
+  tray.receiveShadow = true; tray.castShadow = true;
+  scene.add(tray);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(5.4, .13, 20, 72), wood);
+  rim.rotation.x = Math.PI / 2; rim.position.y = .38;
+  rim.castShadow = true; rim.receiveShadow = true;
+  scene.add(rim);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: .16 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+/* ============================== 소프트바디 ============================== */
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+const _q1 = new THREE.Quaternion(), _Z = new THREE.Vector3(0, 0, 1);
+const _m1 = new THREE.Matrix4();
+
+function prepGeo(geo) {
+  geo.deleteAttribute('normal');
+  geo.deleteAttribute('uv');
+  geo = mergeVertices(geo, 1e-4);
+  geo.computeVertexNormals();
+  return geo;
+}
+function nearestVertex(geo, p) {
+  const pos = geo.attributes.position;
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const dx = pos.getX(i) - p.x, dy = pos.getY(i) - p.y, dz = pos.getZ(i) - p.z;
+    const d = dx * dx + dy * dy + dz * dz;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+class SoftToy {
+  constructor(cfg) {
+    Object.assign(this, {
+      name: cfg.name, short: cfg.short, emoji: cfg.emoji, hint: cfg.hint,
+      type: cfg.type, R: cfg.R, sfx: cfg.sfx
+    });
+    this.phys = cfg.phys; // {k,c,press,maxStretch,grabR,snap}
+    const geo = cfg.geo;
+    geo.computeBoundingBox();
+    this.minY = geo.boundingBox.min.y;
+    this.geo = geo;
+    this.mesh = new THREE.Mesh(geo, cfg.mat);
+    this.bottomY = .31;
+    this.mesh.position.set(cfg.pos[0], this.bottomY - this.minY, cfg.pos[1]);
+    this.mesh.rotation.y = cfg.rotY || 0;
+    this.mesh.castShadow = true;
+    this.mesh.userData.toy = this;
+    geo.computeBoundingSphere();
+    geo.boundingSphere.radius *= 2.2; // ponytail: 변형 여유분, 레이캐스트 누락 방지
+    this.count = geo.attributes.position.count;
+    this.base = Float32Array.from(geo.attributes.position.array);
+    this.baseN = Float32Array.from(geo.attributes.normal.array);
+    this.off = new Float32Array(this.count * 3);
+    this.vel = new Float32Array(this.count * 3);
+    this.active = false;
+    this.grab = null;
+    this.wob = 0; this.wobV = 0;
+    this.phase = Math.random() * Math.PI * 2;
+    this.focusScale = 1; this.focusTarget = 1;
+    this.decos = []; // {vi, h, obj, orient, scale}
+  }
+  addDeco(localPoint, h, obj, orient = false) {
+    const vi = nearestVertex(this.geo, localPoint);
+    this.mesh.add(obj);
+    this.decos.push({ vi, h, obj, orient });
+    this.updateDecos();
+  }
+  updateDecos() {
+    const pos = this.geo.attributes.position, nor = this.geo.attributes.normal;
+    for (const d of this.decos) {
+      const nx = nor.getX(d.vi), ny = nor.getY(d.vi), nz = nor.getZ(d.vi);
+      d.obj.position.set(pos.getX(d.vi) + nx * d.h, pos.getY(d.vi) + ny * d.h, pos.getZ(d.vi) + nz * d.h);
+      if (d.orient) {
+        _v1.set(nx, ny, nz).normalize();
+        d.obj.quaternion.setFromUnitVectors(_Z, _v1);
+      }
+    }
+  }
+  startGrab(hitLocal, hitNormalLocal, t0) {
+    const n = this.count, Ri = this.R * this.phys.grabR;
+    const w = new Float32Array(n), ring = new Float32Array(n);
+    const b = this.base;
+    for (let i = 0; i < n; i++) {
+      const dx = b[i * 3] - hitLocal.x, dy = b[i * 3 + 1] - hitLocal.y, dz = b[i * 3 + 2] - hitLocal.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < Ri) { const q = 1 - d / Ri; w[i] = q * q; }
+      const rd = (d - Ri * 1.25) / (Ri * .55);
+      ring[i] = Math.exp(-rd * rd) * .6;
+    }
+    this.grab = { w, ring, t0, disp: new THREE.Vector3(), hitN: hitNormalLocal.clone().normalize(), hitLocal: hitLocal.clone(), mag: 0 };
+    this.active = true;
+  }
+  endGrab() {
+    const g = this.grab;
+    this.grab = null;
+    if (!g) return 0;
+    const i = Math.min(1.4, g.mag / this.R);
+    this.wobV += Math.min(1.2, i * 1.1);
+    return i;
+  }
+  reset() {
+    this.off.fill(0); this.vel.fill(0);
+    this.wob = 0; this.wobV = 0; this.grab = null;
+    this.writePositions();
+    this.active = false;
+  }
+  writePositions() {
+    const pos = this.geo.attributes.position.array, b = this.base, o = this.off;
+    for (let i = 0; i < pos.length; i++) pos[i] = b[i] + o[i];
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.computeVertexNormals();
+    this.geo.attributes.normal.needsUpdate = true;
+    this.updateDecos();
+    if (this.onDeform) this.onDeform();
+  }
+  update(dt, t) {
+    this.wobV += (-90 * this.wob - 4.5 * this.wobV) * dt;
+    this.wob += this.wobV * dt;
+    this.focusScale += (this.focusTarget - this.focusScale) * Math.min(1, dt * 6);
+    const f = this.focusScale;
+    const br = Math.sin(t * 1.3 + this.phase) * .006;
+    const wob = Math.max(-.4, Math.min(.4, this.wob));
+    this.mesh.scale.set((1 - br * .7 + wob * .5) * f, (1 + br * 1.4 - wob * .9) * f, (1 - br * .7 + wob * .5) * f);
+    this.mesh.position.y = this.bottomY - this.minY * f;
+
+    const n = this.count, off = this.off, vel = this.vel;
+    const g = this.grab;
+
+    if (this.active) {
+      const h = dt / 2, k = this.phys.k, c = this.phys.c;
+      for (let s = 0; s < 2; s++) {
+        for (let i = 0; i < n; i++) {
+          if (g && g.w[i] > .004) continue;
+          for (let a = 0; a < 3; a++) {
+            const idx = i * 3 + a;
+            const v = vel[idx] + (-k * off[idx] - c * vel[idx]) * h;
+            vel[idx] = v; off[idx] += v * h;
+          }
+        }
+      }
+    }
+
+    if (g) {
+      const press = this.R * this.phys.press * Math.min(1, (t - g.t0) * 4.5);
+      _v1.copy(g.disp).addScaledVector(g.hitN, -press);
+      const L = _v1.length(), maxL = this.R * this.phys.maxStretch;
+      if (L > maxL) _v1.multiplyScalar(maxL / L);
+      g.mag = _v1.length();
+      const bulge = Math.max(0, -_v1.dot(g.hitN)) * .5;
+      const kf = 1 - Math.exp(-dt * this.phys.snap);
+      const tx = _v1.x, ty = _v1.y, tz = _v1.z, bN = this.baseN;
+      const invDt = 1 / Math.max(dt, 1e-4);
+      for (let i = 0; i < n; i++) {
+        const w = g.w[i];
+        if (w < .004) continue;
+        const rb = g.ring[i] * bulge;
+        const i3 = i * 3;
+        let d;
+        d = (tx * w + bN[i3] * rb - off[i3]) * kf; vel[i3] = d * invDt; off[i3] += d;
+        d = (ty * w + bN[i3 + 1] * rb - off[i3 + 1]) * kf; vel[i3 + 1] = d * invDt; off[i3 + 1] += d;
+        d = (tz * w + bN[i3 + 2] * rb - off[i3 + 2]) * kf; vel[i3 + 2] = d * invDt; off[i3 + 2] += d;
+      }
+      this.active = true;
+    }
+
+    if (this.active) {
+      let e = 0;
+      for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
+      this.writePositions();
+      if (!g && e < 1e-4) {
+        off.fill(0); vel.fill(0);
+        this.writePositions();
+        this.active = false;
+      }
+    }
+  }
+}
+
+/* ============================== 지오메트리 ============================== */
+function blobGeo(r, squash, dimple = 0, noiseAmp = .06, detail = 20, melt = 0) {
+  let g = prepGeo(new THREE.IcosahedronGeometry(r, detail));
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    if (noiseAmp > 0) {
+      const s = 1 + noiseAmp * (
+        Math.sin(3.1 * x + 1.3) * Math.sin(2.7 * y + 4.2) * .5 +
+        Math.sin(2.3 * z + 2.1) * Math.sin(3.7 * x) * .5 +
+        Math.sin(6.1 * x + 2.9) * Math.sin(5.3 * y + 1.1) * Math.sin(4.7 * z) * .22
+      );
+      x *= s; y *= s; z *= s;
+    }
+    y *= squash;
+    if (melt > 0 && y < 0) {
+      const m = 1 + melt * (-y / (r * squash));
+      x *= m; z *= m;
+    }
+    if (dimple > 0 && y > 0) {
+      const hr = (x * x + z * z) / (r * r);
+      y -= dimple * Math.exp(-hr / .09) * r;
+    }
+    p.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+/* RoundedBoxGeometry는 면 중앙에 정점이 없어(모서리 집중) 소프트바디가 뭉개진다.
+   균일 분할 BoxGeometry를 코어 박스에서 rad 거리로 정규화 → 정점 균일한 라운드 박스 */
+function cubeGeo(w, h, d, rad, segs = 22) {
+  let g = new THREE.BoxGeometry(w, h, d, segs, segs, segs);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  g = mergeVertices(g, 1e-4);
+  const hw = w / 2 - rad, hh = h / 2 - rad, hd = d / 2 - rad;
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    _v1.set(p.getX(i), p.getY(i), p.getZ(i));
+    _v2.set(
+      Math.max(-hw, Math.min(hw, _v1.x)),
+      Math.max(-hh, Math.min(hh, _v1.y)),
+      Math.max(-hd, Math.min(hd, _v1.z))
+    );
+    _v3.copy(_v1).sub(_v2);
+    const l = _v3.length();
+    if (l > 1e-6) _v3.multiplyScalar(rad / l);
+    p.setXYZ(i, _v2.x + _v3.x, _v2.y + _v3.y, _v2.z + _v3.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function cheeseGeo() { // 왕치즈 슬랑이: 반투명 치즈 슬랩 + 스위스 치즈 구멍
+  const g = cubeGeo(2.15, 1.05, 1.5, .3, 26);
+  const holes = [
+    { c: new THREE.Vector3(.55, .53, .33), r: .34 },
+    { c: new THREE.Vector3(-.52, .53, -.28), r: .28 },
+    { c: new THREE.Vector3(-.12, .53, .44), r: .2 },
+    { c: new THREE.Vector3(.4, .12, .76), r: .24 },
+    { c: new THREE.Vector3(-.62, .02, -.76), r: .27 },
+    { c: new THREE.Vector3(1.08, .14, -.22), r: .27 }
+  ];
+  const inner = holes.map(h => h.c.clone().multiplyScalar(.55)); // 크레이터가 모이는 안쪽 점
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    _v1.set(p.getX(i), p.getY(i), p.getZ(i));
+    for (let hI = 0; hI < holes.length; hI++) {
+      const d = _v1.distanceTo(holes[hI].c);
+      if (d < holes[hI].r) {
+        const w = (1 - d / holes[hI].r) ** 2 * .85;
+        _v1.lerp(inner[hI], w);
+      }
+    }
+    p.setXYZ(i, _v1.x, _v1.y, _v1.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function slangGeo() { // 쭉쭉이: 통통한 애벌레 몸통 (X축으로 눕힘)
+  let g = new THREE.CapsuleGeometry(.6, 1.9, 16, 36);
+  g.rotateZ(Math.PI / 2);
+  g = prepGeo(g);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const s = 1 + .05 * Math.sin(4.2 * x + 1.5) * Math.sin(3.1 * z);
+    y *= .86 * s;
+    z *= s;
+    if (x > .7) { const m = 1 + (x - .7) * .18; y *= m; z *= m; } // 머리 쪽 통통
+    p.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ============================== 재질 ============================== */
+const jelly = (color, tint) => new THREE.MeshPhysicalMaterial({
+  color: tint, transmission: 1, thickness: 1.2, roughness: .06, ior: 1.32,
+  attenuationColor: new THREE.Color(color), attenuationDistance: 2.6,
+  clearcoat: .6, clearcoatRoughness: .2, specularIntensity: 1, envMapIntensity: .9
+});
+const slimeMat = (color) => new THREE.MeshPhysicalMaterial({
+  color, roughness: .22, clearcoat: 1, clearcoatRoughness: .25,
+  sheen: .4, sheenColor: new THREE.Color('#ffd9e8'), envMapIntensity: .75
+});
+
+/* ============================== 장난감 구성 ============================== */
+const toys = [];
+function addToy(cfg) { const t = new SoftToy(cfg); toys.push(t); scene.add(t.mesh); return t; }
+
+/* 1. 왕치즈 슬랑이 — 히어로. 반투명 앰버 치즈, 쭉쭉 늘고 찐득하게 붙는다 */
+addToy({
+  name: '왕치즈 슬랑이', short: '왕치즈', emoji: '🧀', type: 'slang', R: 1.05,
+  hint: '쭈-욱 3배로 늘려보세요 · 찌-익 찐득 필링',
+  geo: cheeseGeo(), mat: jelly('#e8a018', '#ffd98a'), pos: [0, -.2], rotY: .15,
+  phys: { k: 26, c: 10, press: .4, maxStretch: 2.8, grabR: 1.5, snap: 12 },
+  sfx: { wet: .8, bubbles: .35, sticky: .65, pitch: .6, low: 1, release: 'slap', vol: .85 }
+});
+
+/* 2. 액괴 블롭 — 깊고 축축한 쭈걱쭈걱 */
+addToy({
+  name: '몰랑 액괴', short: '액괴', emoji: '🩷', type: 'slime', R: 1.35,
+  hint: '꾹 누르고 쭈물쭈물 반죽해보세요',
+  geo: blobGeo(1.35, .78, 0, .07, 20, .22), mat: slimeMat('#ff9ec9'), pos: [-3.5, -.4],
+  phys: { k: 70, c: 6.5, press: .42, maxStretch: 1.9, grabR: 1.25, snap: 12 },
+  sfx: { wet: 1, bubbles: 1.25, pitch: .85, low: 1.1, sticky: .25, release: 'boing' }
+});
+
+/* 3. 크런치 각설탕 — 1~4kHz 클러스터, 눌린 모양이 남았다가 서서히 복원 */
+const crunchToy = addToy({
+  name: '크런치 각설탕', short: '크런치', emoji: '🍬', type: 'slime', R: .95,
+  hint: '와그작! 누를수록 촘촘한 뽀득 소리',
+  geo: cubeGeo(1.6, 1.3, 1.6, .38), mat: slimeMat('#ffb3d1'), pos: [3.5, -.4], rotY: .4,
+  phys: { k: 16, c: 14, press: .3, maxStretch: 1.15, grabR: 1.05, snap: 22 },
+  sfx: { wet: .35, bubbles: .25, crunch: 1, pitch: 1.05, low: .7, release: 'crunch' }
+});
+
+/* 4. 저반발 스퀴시 — 거의 무음이 매력 (다른 애들의 대비) */
+addToy({
+  name: '몰캉 스퀴시', short: '스퀴시', emoji: '🥝', type: 'slow', R: 1.15,
+  hint: '꾸-욱 눌렀다 떼면 3초 동안 천천히 올라와요',
+  geo: blobGeo(1.15, .88, .16, .05, 20), pos: [-2.3, -2.7], rotY: -.3,
+  mat: new THREE.MeshPhysicalMaterial({
+    color: '#9ecb3f', roughness: .45, clearcoat: .35, clearcoatRoughness: .5,
+    sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color('#eaffc0'), envMapIntensity: .6
+  }),
+  phys: { k: 5, c: 5.5, press: .55, maxStretch: 1.1, grabR: 1.3, snap: 10 },
+  sfx: { wet: .2, bubbles: .15, foam: 1, pitch: .6, low: 1.2, release: 'foam', vol: .55 }
+});
+
+/* 5~6. 젤리 — 탱글 바운스 + 글룩 */
+const jellySfx = { wet: .65, bubbles: 1, pitch: 1.35, low: .8, release: 'jelly', vol: .9 };
+const jellyPhys = { k: 180, c: 2.8, press: .3, maxStretch: 1.25, grabR: 1.05, snap: 26 };
+const jApple = addToy({
+  name: '젤리 사과', short: '사과젤리', emoji: '🍎', type: 'jelly', R: 1.05,
+  hint: '탱글탱글! 당겼다 놓아보세요',
+  geo: blobGeo(1.05, .92, .2, 0, 20), mat: jelly('#e8402e', '#ffb0a0'), pos: [2.3, -2.7],
+  phys: jellyPhys, sfx: jellySfx
+});
+const jPeach = addToy({
+  name: '복숭아 젤리', short: '복숭아젤리', emoji: '🍑', type: 'jelly', R: .85,
+  hint: '말캉! 젤리 큐브를 조물조물',
+  geo: cubeGeo(1.35, 1.35, 1.35, .4), mat: jelly('#ee6a9a', '#ffc2d6'), pos: [0, 3.6], rotY: .3,
+  phys: jellyPhys, sfx: jellySfx
+});
+
+/* 7. 우파루파 슬랑이 — 파스텔 핑크, 아가미 프릴 달린 스트레치 실리콘 */
+const slang = addToy({
+  name: '우파루파 슬랑이', short: '우파', emoji: '🦎', type: 'slang', R: .9,
+  hint: '쭈-욱 당겨보세요! 3배까지 늘어나요',
+  geo: slangGeo(), pos: [-2.6, 2.4], rotY: .5,
+  mat: new THREE.MeshPhysicalMaterial({
+    color: '#ffb6d3', transmission: .55, thickness: .8, roughness: .3, ior: 1.4,
+    attenuationColor: new THREE.Color('#ff7fb0'), attenuationDistance: 2.5,
+    clearcoat: .8, clearcoatRoughness: .3, envMapIntensity: .7
+  }),
+  phys: { k: 32, c: 5, press: .3, maxStretch: 3.2, grabR: 1.7, snap: 14 },
+  sfx: { wet: .5, bubbles: .4, sticky: 1, pitch: 1, low: .9, release: 'slap' }
+});
+
+/* 8. 왁뿌볼 청사과 — 광택 왁스 껍질 속 매트한 점토 (아트박스 스타일) */
+const waxInner = addToy({
+  name: '왁뿌볼 청사과', short: '왁뿌볼', emoji: '🍏', type: 'wax', R: 1.05,
+  hint: '톡톡! 두드려서 왁스 껍질을 와그작 깨보세요',
+  geo: blobGeo(1.0, .96, 0, .03, 20), pos: [2.6, 2.4],
+  mat: new THREE.MeshStandardMaterial({ color: '#fff3dc', roughness: .85 }), // 속심=매트 점토
+  phys: { k: 14, c: 8, press: .55, maxStretch: 1.3, grabR: 1.3, snap: 12 },
+  sfx: { wet: .3, bubbles: .2, foam: .6, pitch: .55, low: 1, release: 'foam', vol: .7 }
+});
+
+/* ---- 데코: 크런치 비즈 ---- */
+{
+  const beadGeo = new THREE.SphereGeometry(.07, 8, 8);
+  const beadCols = ['#ffffff', '#ffe08a', '#ffb3d1', '#a8e6ff'];
+  for (let i = 0; i < 72; i++) {
+    const vi = (Math.random() * crunchToy.count) | 0;
+    const b = crunchToy.base;
+    _v1.set(b[vi * 3], b[vi * 3 + 1], b[vi * 3 + 2]);
+    if (_v1.y < -.4) continue; // 바닥면 제외
+    const m = new THREE.Mesh(beadGeo, new THREE.MeshStandardMaterial({
+      color: beadCols[(Math.random() * beadCols.length) | 0], roughness: .4
+    }));
+    const s = .7 + Math.random() * .7;
+    m.scale.setScalar(s);
+    crunchToy.addDeco(_v1.clone(), -.02, m);
+  }
+}
+/* ---- 데코: 젤리 속 기포 ---- */
+{
+  const bubGeo = new THREE.SphereGeometry(.05, 8, 8);
+  const bubMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .55 });
+  for (const jt of [jApple, jPeach]) {
+    for (let i = 0; i < 9; i++) {
+      const vi = (Math.random() * jt.count) | 0;
+      const b = jt.base;
+      _v1.set(b[vi * 3], b[vi * 3 + 1], b[vi * 3 + 2]);
+      const m = new THREE.Mesh(bubGeo, bubMat);
+      m.scale.setScalar(.5 + Math.random());
+      jt.addDeco(_v1.clone(), -(.2 + Math.random() * .3), m);
+    }
+  }
+}
+/* ---- 데코: 슬랑이 얼굴 ---- */
+{
+  const eyeMat = new THREE.MeshStandardMaterial({ color: '#222233', roughness: .25 });
+  const glintMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+  const cheekMat = new THREE.MeshStandardMaterial({ color: '#ff9bb0', roughness: .6 });
+  for (const side of [1, -1]) {
+    const eye = new THREE.Group();
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(.1, 12, 12), eyeMat);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 8), glintMat);
+    glint.position.set(.03, .04, .07);
+    eye.add(ball, glint);
+    slang.addDeco(new THREE.Vector3(1.15, .3, side * .3), .02, eye);
+    const cheek = new THREE.Mesh(new THREE.SphereGeometry(.075, 10, 10), cheekMat);
+    cheek.scale.z = .4;
+    slang.addDeco(new THREE.Vector3(1.05, .05, side * .52), .015, cheek, true);
+    /* 우파루파 아가미 프릴 3쌍 */
+    const gillMat = new THREE.MeshStandardMaterial({ color: '#ff7fa8', roughness: .5 });
+    for (let gI = 0; gI < 3; gI++) {
+      const gill = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), gillMat);
+      gill.scale.set(.5, .5, 1.7);
+      slang.addDeco(new THREE.Vector3(.75 + gI * .18, .42 + gI * .04, side * (.42 - gI * .06)), .05, gill, true);
+    }
+  }
+}
+
+const toyMeshes = toys.map(t => t.mesh);
+
+/* ============================== 왁스 껍질 ============================== */
+const WaxShell = {
+  toy: waxInner, mesh: null, aliveCount: 0, faceCount: 0, alive: null, orig: null, centroids: null,
+  build() {
+    const geo = new THREE.IcosahedronGeometry(1.0 * 1.09, 4); // non-indexed 삼각형 수프
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) { // 손으로 담근 왁스 느낌: 울퉁불퉁
+      _v1.set(p.getX(i), p.getY(i), p.getZ(i));
+      const s = 1 + .05 * Math.sin(5.1 * _v1.x + 1.2) * Math.sin(4.3 * _v1.y) * Math.sin(3.7 * _v1.z + 2);
+      p.setXYZ(i, _v1.x * s, _v1.y * s * .98, _v1.z * s);
+    }
+    geo.computeVertexNormals();
+    this.geo = geo;
+    this.faceCount = p.count / 3;
+    this.alive = new Uint8Array(this.faceCount).fill(1);
+    this.aliveCount = this.faceCount;
+    this.orig = Float32Array.from(p.array);
+    this.centroids = new Float32Array(this.faceCount * 3);
+    for (let f = 0; f < this.faceCount; f++) {
+      for (let a = 0; a < 3; a++) {
+        this.centroids[f * 3 + a] = (p.array[f * 9 + a] + p.array[f * 9 + 3 + a] + p.array[f * 9 + 6 + a]) / 3;
+      }
+    }
+    /* 아트박스 청사과: 크리스마스 오너먼트 같은 광택 초록 왁스 */
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: '#3fbf4f', roughness: .12, clearcoat: 1, clearcoatRoughness: .12,
+      flatShading: true, side: THREE.DoubleSide, envMapIntensity: 1
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.castShadow = true;
+    this.mesh.userData.shellOf = this.toy;
+    geo.computeBoundingSphere();
+    scene.add(this.mesh);
+    const stem = new THREE.Mesh(
+      new THREE.CylinderGeometry(.035, .055, .34, 8),
+      new THREE.MeshStandardMaterial({ color: '#7a4a26', roughness: .8 })
+    );
+    stem.position.set(0, 1.15, 0); stem.rotation.z = .18;
+    const leaf = new THREE.Mesh(
+      new THREE.SphereGeometry(.17, 10, 8),
+      new THREE.MeshStandardMaterial({ color: '#4d9e3f', roughness: .5 })
+    );
+    leaf.scale.set(1.5, .32, .7); leaf.position.set(.24, 1.22, .02); leaf.rotation.z = -.45;
+    this.mesh.add(stem, leaf);
+    this.sync();
+  },
+  sync() {
+    if (!this.mesh) return;
+    this.mesh.position.copy(this.toy.mesh.position);
+    this.mesh.rotation.copy(this.toy.mesh.rotation);
+    this.mesh.scale.setScalar(this.toy.focusScale);
+    this.mesh.visible = this.aliveCount > 0;
+  },
+  chipAt(worldPoint, radius) {
+    if (!this.mesh || !this.aliveCount) return 0;
+    const local = this.mesh.worldToLocal(_v1.copy(worldPoint));
+    const p = this.geo.attributes.position.array;
+    let removed = 0;
+    for (let f = 0; f < this.faceCount; f++) {
+      if (!this.alive[f]) continue;
+      const dx = this.centroids[f * 3] - local.x, dy = this.centroids[f * 3 + 1] - local.y, dz = this.centroids[f * 3 + 2] - local.z;
+      if (dx * dx + dy * dy + dz * dz > radius * radius) continue;
+      this.alive[f] = 0; this.aliveCount--; removed++;
+      /* 파편 스폰 후 면을 퇴화시켜 숨김(레이캐스트도 안 맞음) */
+      _v2.set(this.centroids[f * 3], this.centroids[f * 3 + 1], this.centroids[f * 3 + 2]);
+      const world = this.mesh.localToWorld(_v2.clone());
+      if (removed <= 8) Shards.spawn(world, _v2.normalize(), '#3fbf4f');
+      for (let a = 0; a < 3; a++) p[f * 9 + a] = p[f * 9 + 3 + a] = p[f * 9 + 6 + a] = this.centroids[f * 3 + a];
+    }
+    if (removed) this.geo.attributes.position.needsUpdate = true;
+    return removed;
+  },
+  restore() {
+    if (!this.mesh) return;
+    this.geo.attributes.position.array.set(this.orig);
+    this.geo.attributes.position.needsUpdate = true;
+    this.alive.fill(1);
+    this.aliveCount = this.faceCount;
+    this.mesh.visible = true;
+  },
+  peeled() { return this.aliveCount <= 0; },
+  finishIfAlmost() {
+    if (!this.aliveCount || this.aliveCount > this.faceCount * .1) return false;
+    /* 마지막 조각들 우수수 */
+    const p = this.geo.attributes.position.array;
+    for (let f = 0; f < this.faceCount; f++) {
+      if (!this.alive[f]) continue;
+      this.alive[f] = 0;
+      _v2.set(this.centroids[f * 3], this.centroids[f * 3 + 1], this.centroids[f * 3 + 2]);
+      if (Math.random() < .4) Shards.spawn(this.mesh.localToWorld(_v2.clone()), _v2.clone().normalize(), '#3fbf4f');
+      for (let a = 0; a < 3; a++) p[f * 9 + a] = p[f * 9 + 3 + a] = p[f * 9 + 6 + a] = this.centroids[f * 3 + a];
+    }
+    this.aliveCount = 0;
+    this.geo.attributes.position.needsUpdate = true;
+    this.mesh.visible = false;
+    return true;
+  }
+};
+
+/* 왁스 파편 */
+const Shards = {
+  N: 90, i: 0, items: [],
+  init() {
+    const geo = new THREE.TetrahedronGeometry(.11);
+    this.imesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: .35 }), this.N);
+    this.imesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.imesh.frustumCulled = false;
+    for (let i = 0; i < this.N; i++) {
+      this.items.push({ p: new THREE.Vector3(0, -99, 0), v: new THREE.Vector3(), ax: new THREE.Vector3(1, 0, 0), ang: 0, av: 0, life: 0, s: 1 });
+      this.imesh.setColorAt(i, new THREE.Color('#3fbf4f'));
+    }
+    scene.add(this.imesh);
+  },
+  spawn(p, dir, color) {
+    const it = this.items[this.i = (this.i + 1) % this.N];
+    it.p.copy(p);
+    it.v.copy(dir).multiplyScalar(1.6 + Math.random() * 1.6);
+    it.v.x += (Math.random() - .5); it.v.y += .8 + Math.random() * 1.2; it.v.z += (Math.random() - .5);
+    it.ax.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize();
+    it.ang = Math.random() * Math.PI * 2;
+    it.av = (Math.random() - .5) * 14;
+    it.life = 1.4;
+    it.s = .6 + Math.random() * .9;
+    this.imesh.setColorAt(this.i, new THREE.Color(color));
+    if (this.imesh.instanceColor) this.imesh.instanceColor.needsUpdate = true;
+  },
+  update(dt) {
+    for (let i = 0; i < this.N; i++) {
+      const it = this.items[i];
+      if (it.life <= 0) continue;
+      it.life -= dt;
+      it.v.y -= 7 * dt;
+      it.p.addScaledVector(it.v, dt);
+      it.ang += it.av * dt;
+      if (it.p.y < .05) { it.p.y = .05; it.v.y *= -.3; it.v.x *= .7; it.v.z *= .7; it.av *= .7; }
+      const s = it.s * Math.min(1, it.life * 2.5);
+      _q1.setFromAxisAngle(it.ax, it.ang);
+      _m1.compose(it.p, _q1, _v1.set(s, s, s));
+      this.imesh.setMatrixAt(i, _m1);
+      if (it.life <= 0) { _m1.makeScale(0, 0, 0); this.imesh.setMatrixAt(i, _m1); }
+    }
+    this.imesh.instanceMatrix.needsUpdate = true;
+  }
+};
+Shards.init();
+WaxShell.build();
+
+/* ============================== 반짝이 파티클 ============================== */
+function sparkleTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(.35, 'rgba(255,240,250,.7)');
+  gr.addColorStop(1, 'rgba(255,240,250,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+const sparkTex = sparkleTexture();
+
+const Burst = {
+  N: 240, i: 0, pos: null, col: null, vel: [], life: new Float32Array(240),
+  init() {
+    const geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(this.N * 3).fill(-999);
+    this.col = new Float32Array(this.N * 3);
+    geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    for (let i = 0; i < this.N; i++) this.vel.push(new THREE.Vector3());
+    this.geo = geo;
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      size: .14, map: sparkTex, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, vertexColors: true, sizeAttenuation: true
+    }));
+    pts.frustumCulled = false;
+    scene.add(pts);
+  },
+  burst(p, n, power, palette) {
+    palette = palette || [[1, .8, .9], [1, .95, .7], [1, 1, 1], [.85, .95, 1]];
+    for (let k = 0; k < n; k++) {
+      const i = this.i = (this.i + 1) % this.N;
+      this.pos[i * 3] = p.x; this.pos[i * 3 + 1] = p.y; this.pos[i * 3 + 2] = p.z;
+      this.vel[i].set(Math.random() - .5, Math.random() * .8 + .2, Math.random() - .5).multiplyScalar(2.2 * power);
+      this.life[i] = .7 + Math.random() * .5;
+      const c = palette[(Math.random() * palette.length) | 0];
+      this.col[i * 3] = c[0]; this.col[i * 3 + 1] = c[1]; this.col[i * 3 + 2] = c[2];
+    }
+  },
+  update(dt) {
+    for (let i = 0; i < this.N; i++) {
+      if (this.life[i] <= 0) continue;
+      this.life[i] -= dt;
+      const l = Math.max(0, this.life[i]);
+      this.vel[i].y += 1.1 * dt;
+      this.vel[i].multiplyScalar(1 - 2.2 * dt);
+      this.pos[i * 3] += this.vel[i].x * dt;
+      this.pos[i * 3 + 1] += this.vel[i].y * dt;
+      this.pos[i * 3 + 2] += this.vel[i].z * dt;
+      if (l < .45) {
+        const fade = Math.max(0, 1 - dt / Math.max(l, .01));
+        this.col[i * 3] *= fade; this.col[i * 3 + 1] *= fade; this.col[i * 3 + 2] *= fade;
+      }
+      if (l <= 0) this.pos[i * 3 + 1] = -999;
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.color.needsUpdate = true;
+  }
+};
+Burst.init();
+
+const Dust = (() => {
+  const N = 80;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), ph = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const a = Math.random() * Math.PI * 2, r = 1 + Math.random() * 6.5;
+    pos[i * 3] = Math.cos(a) * r;
+    pos[i * 3 + 1] = .5 + Math.random() * 4.5;
+    pos[i * 3 + 2] = Math.sin(a) * r;
+    ph[i] = Math.random() * Math.PI * 2;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: .07, map: sparkTex, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, vertexColors: true
+  }));
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return {
+    update(t) {
+      for (let i = 0; i < N; i++) {
+        const tw = (Math.sin(t * (1 + ph[i] * .2) + ph[i]) * .5 + .5) * .55 + .05;
+        col[i * 3] = tw; col[i * 3 + 1] = tw * .96; col[i * 3 + 2] = tw * .9;
+        pos[i * 3 + 1] += Math.sin(t * .5 + ph[i]) * .0012;
+      }
+      geo.attributes.color.needsUpdate = true;
+      geo.attributes.position.needsUpdate = true;
+    }
+  };
+})();
+
+/* ============================== 선택/카메라 ============================== */
+let selected = null;
+let camTween = null;
+const easeIO = s => s < .5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2;
+
+function tweenCam(pos, target, dur = .9) {
+  camTween = { t0: performance.now() / 1000, dur, fp: camera.position.clone(), ft: controls.target.clone(), tp: pos, tt: target };
+}
+function focusView(toy) {
+  const p = toy.mesh.position, R = toy.R;
+  const target = new THREE.Vector3(p.x * .92, p.y + R * .1, p.z * .92);
+  const dir = camera.position.clone().sub(controls.target); dir.y = 0;
+  if (dir.lengthSq() < .001) dir.set(0, 0, 1); else dir.normalize();
+  const pos = target.clone().addScaledVector(dir, R * 5.2);
+  pos.y = target.y + R * 2.7;
+  return { pos, target };
+}
+function endAllGrabs() {
+  for (const [, g] of grabs) { if (g.toy) g.toy.endGrab(); }
+  grabs.clear();
+}
+function select(toy) {
+  if (toy === selected) return;
+  endAllGrabs();
+  selected = toy;
+  toys.forEach(t => t.focusTarget = (!toy || t === toy) ? 1 : .52);
+  document.getElementById('back').style.display = toy ? 'block' : 'none';
+  el.hint.textContent = toy ? `${toy.emoji} ${toy.hint}` : '👇 아래에서 만지고 싶은 아이를 골라보세요';
+  el.hint.style.opacity = '1';
+  document.querySelectorAll('#chips button').forEach(b => {
+    b.classList.toggle('on', toy ? +b.dataset.i === toys.indexOf(toy) : b.dataset.i === 'all');
+  });
+  if (toy) {
+    const v = focusView(toy);
+    tweenCam(v.pos, v.target);
+    controls.minDistance = toy.R * 2.4;
+    controls.maxDistance = toy.R * 13;
+    Sound.pluck(toy.mesh.position.x);
+  } else {
+    tweenCam(HOME.pos.clone(), HOME.target.clone());
+    controls.minDistance = 6; controls.maxDistance = 22;
+  }
+  el.tip.style.display = 'none';
+}
+
+/* ============================== 인터랙션 ============================== */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const grabs = new Map(); // pointerId -> {mode:'grab'|'chip', toy, ...}
+let squishCount = 0, toastShown = false;
+
+const el = {
+  count: document.getElementById('count'),
+  countWrap: document.getElementById('countWrap'),
+  hint: document.getElementById('hint'),
+  tip: document.getElementById('tip'),
+  toast: document.getElementById('toast')
+};
+
+function pickAll(e) {
+  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const list = WaxShell.mesh && WaxShell.mesh.visible ? [...toyMeshes, WaxShell.mesh] : toyMeshes;
+  const hits = raycaster.intersectObjects(list, false);
+  if (!hits.length) return null;
+  const h = hits[0];
+  const isShell = !!h.object.userData.shellOf;
+  return { toy: isShell ? h.object.userData.shellOf : h.object.userData.toy, point: h.point, normal: h.face ? h.face.normal : null, isShell };
+}
+
+function showToastOnce() {
+  if (toastShown) return;
+  toastShown = true;
+  if (Sound.muted) el.toast.textContent = '🔇 음소거 상태예요 — 우측 위 버튼으로 켤 수 있어요';
+  el.toast.style.opacity = '1';
+  setTimeout(() => el.toast.style.opacity = '0', 2600);
+}
+function toast(msg, ms = 2400) {
+  el.toast.textContent = msg;
+  el.toast.style.opacity = '1';
+  setTimeout(() => el.toast.style.opacity = '0', ms);
+}
+
+function spawnHearts(worldPos, n) {
+  _v3.copy(worldPos).project(camera);
+  const sx = (_v3.x * .5 + .5) * innerWidth, sy = (-_v3.y * .5 + .5) * innerHeight;
+  const emo = ['💗', '💕', '✨', '🫧', '💖'];
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'heart';
+    d.textContent = emo[(Math.random() * emo.length) | 0];
+    d.style.left = (sx + (Math.random() - .5) * 60) + 'px';
+    d.style.top = (sy + (Math.random() - .5) * 20) + 'px';
+    d.style.setProperty('--dx', ((Math.random() - .5) * 70) + 'px');
+    d.style.setProperty('--r', ((Math.random() - .5) * 40) + 'deg');
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1200);
+  }
+}
+function bumpCount() {
+  squishCount++;
+  el.count.textContent = squishCount;
+  el.countWrap.classList.remove('bump');
+  void el.countWrap.offsetWidth;
+  el.countWrap.classList.add('bump');
+}
+
+const GREEN_PUFF = [[.55, 1, .6], [.75, 1, .78], [1, 1, 1]];
+function doChip(g, worldPoint) {
+  const toy = g.toy;
+  const first = WaxShell.aliveCount === WaxShell.faceCount;
+  const removed = WaxShell.chipAt(worldPoint, toy.R * .38);
+  if (!removed) return;
+  Sound.crack(Math.min(1, removed / 10), toy.mesh.position.x, first);
+  Burst.burst(worldPoint, first ? 16 : 5, first ? .9 : .5, GREEN_PUFF);
+  navigator.vibrate?.(first ? 30 : 14);
+  if (first) toast('와그작! 🍏 사과향이 퍼져요');
+  bumpCount();
+  if (WaxShell.finishIfAlmost() || WaxShell.peeled()) {
+    toast('🎉 껍질 다 깠다! 속말랑이가 나왔어요');
+    Burst.burst(toy.mesh.position.clone().setY(toy.mesh.position.y + .5), 30, 1.2);
+    spawnHearts(toy.mesh.position, 5);
+    el.hint.textContent = `${toy.emoji} 이제 말랑말랑 만져보세요!`;
+  }
+}
+
+function onDown(e) {
+  if (e.target !== canvas) return; // UI 위 클릭은 UI에게
+  Sound.init();
+  showToastOnce();
+  /* 조물조물 중 두 번째 손가락 → 카메라 회전 방지 */
+  if (grabs.size > 0) { e.stopPropagation(); e.preventDefault(); return; }
+  const hit = pickAll(e);
+  if (!hit) return; // 빈 곳 → OrbitControls
+  e.stopPropagation();
+  e.preventDefault();
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+
+  if (!selected || hit.toy !== selected) { select(hit.toy); return; }
+
+  const toy = hit.toy;
+  if (toy.type === 'wax' && hit.isShell) {
+    const g = { mode: 'chip', toy, lastChipT: performance.now() };
+    grabs.set(e.pointerId, g);
+    doChip(g, hit.point);
+    return;
+  }
+  if (toy.grab) return;
+  const hitWorld = hit.point.clone();
+  const hitLocal = toy.mesh.worldToLocal(hitWorld.clone());
+  const nLocal = hit.normal ? hit.normal.clone() : new THREE.Vector3(0, 1, 0);
+  toy.startGrab(hitLocal, nLocal, performance.now() / 1000);
+  const camDir = camera.getWorldDirection(_v1).clone();
+  grabs.set(e.pointerId, {
+    mode: 'grab', toy, hitWorld,
+    plane: new THREE.Plane().setFromNormalAndCoplanarPoint(camDir.negate(), hitWorld),
+    lastWorld: hitWorld.clone(), lastT: performance.now(),
+    acc: 0, lastGrainT: 0, lastMag: 0
+  });
+  Sound.press(toy.sfx, .4 + Math.random() * .2, toy.mesh.position.x);
+  Burst.burst(hitWorld, 7, .5);
+  navigator.vibrate?.(10);
+  canvas.style.cursor = 'grabbing';
+  el.tip.style.display = 'none';
+}
+
+let lastHover = 0;
+function onMove(e) {
+  const g = grabs.get(e.pointerId);
+  if (!g) {
+    if (e.pointerType === 'mouse' && grabs.size === 0 && e.target === canvas) {
+      const now = performance.now();
+      if (now - lastHover > 60) {
+        lastHover = now;
+        const hit = pickAll(e);
+        if (hit) {
+          canvas.style.cursor = 'pointer';
+          el.tip.style.display = 'block';
+          el.tip.textContent = (!selected || hit.toy !== selected)
+            ? `${hit.toy.emoji} ${hit.toy.name} — 탭해서 선택`
+            : `${hit.toy.emoji} ${hit.toy.name}`;
+          el.tip.style.left = Math.min(innerWidth - 180, e.clientX + 16) + 'px';
+          el.tip.style.top = (e.clientY + 20) + 'px';
+          if (selected && hit.toy === selected) canvas.style.cursor = 'grab';
+        } else {
+          canvas.style.cursor = 'default';
+          el.tip.style.display = 'none';
+        }
+      }
+    }
+    return;
+  }
+  e.preventDefault();
+
+  if (g.mode === 'chip') {
+    const now = performance.now();
+    if (now - g.lastChipT < 130) return;
+    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    if (!WaxShell.mesh.visible) return;
+    const hits = raycaster.intersectObject(WaxShell.mesh, false);
+    if (hits.length) { g.lastChipT = now; doChip(g, hits[0].point); }
+    return;
+  }
+
+  const toy = g.toy, grab = toy.grab;
+  if (!grab) return;
+  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  if (!raycaster.ray.intersectPlane(g.plane, _v1)) return;
+
+  const pA = toy.mesh.worldToLocal(_v3.copy(g.hitWorld));
+  const dispLocal = toy.mesh.worldToLocal(_v1.clone()).sub(pA);
+  grab.disp.copy(dispLocal);
+
+  const now = performance.now();
+  const moved = _v2.copy(_v1).sub(g.lastWorld).length();
+  g.acc += moved;
+  const speed = moved / Math.max(1, now - g.lastT) * 1000;
+  g.lastWorld.copy(_v1); g.lastT = now;
+  if (g.acc > .15 && now - g.lastGrainT > 55) {
+    g.lastGrainT = now; g.acc = 0;
+    Sound.drag(toy.sfx, Math.min(1, .18 + speed * .09), toy.mesh.position.x);
+    if (Math.random() < .5) Burst.burst(_v1, 2, .3);
+  }
+  if (grab.mag > toy.R * .85 && grab.mag > g.lastMag && Math.random() < .35) {
+    Sound.stretchTick(toy.sfx, toy.mesh.position.x);
+  }
+  g.lastMag = grab.mag;
+}
+
+function onUp(e) {
+  const g = grabs.get(e.pointerId);
+  if (!g) return;
+  grabs.delete(e.pointerId);
+  canvas.style.cursor = 'default';
+  if (g.mode === 'chip') return;
+  const toy = g.toy;
+  const gg = toy.grab;
+  const releaseWorld = gg
+    ? toy.mesh.localToWorld(_v1.copy(gg.hitLocal).add(gg.disp)).clone()
+    : toy.mesh.position.clone();
+  const intensity = toy.endGrab();
+  Sound.release(toy.sfx, Math.min(1, .25 + intensity * .7), toy.mesh.position.x);
+  Burst.burst(releaseWorld, 8 + Math.round(intensity * 14), .4 + intensity * .8);
+  if (intensity > .45) { spawnHearts(releaseWorld, 2 + Math.round(intensity * 3)); navigator.vibrate?.(20); }
+  bumpCount();
+}
+
+window.addEventListener('pointerdown', onDown, true);
+window.addEventListener('pointermove', onMove, true);
+window.addEventListener('pointerup', onUp, true);
+window.addEventListener('pointercancel', onUp, true);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('keydown', e => { if (e.key === 'Escape') select(null); });
+
+/* ============================== UI ============================== */
+{
+  const chips = document.getElementById('chips');
+  const all = document.createElement('button');
+  all.textContent = '⊙ 전체';
+  all.dataset.i = 'all';
+  all.classList.add('on');
+  all.addEventListener('click', () => { Sound.init(); select(null); });
+  chips.appendChild(all);
+  toys.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.textContent = `${t.emoji} ${t.short}`;
+    b.dataset.i = i;
+    b.addEventListener('click', () => { Sound.init(); select(t); });
+    chips.appendChild(b);
+  });
+}
+document.getElementById('back').addEventListener('click', () => { Sound.init(); select(null); });
+
+const volEl = document.getElementById('vol');
+const muteEl = document.getElementById('mute');
+volEl.value = Math.round(Sound.vol * 100);
+muteEl.textContent = Sound.muted ? '🔇' : '🔊';
+volEl.addEventListener('input', () => { Sound.init(); Sound.setVol(volEl.value / 100); });
+muteEl.addEventListener('click', () => {
+  Sound.init();
+  Sound.setMute(!Sound.muted);
+  muteEl.textContent = Sound.muted ? '🔇' : '🔊';
+});
+document.getElementById('reset').addEventListener('click', () => {
+  endAllGrabs();
+  toys.forEach(t => t.reset());
+  WaxShell.restore();
+  if (selected) el.hint.textContent = `${selected.emoji} ${selected.hint}`;
+  Sound.init(); Sound.pluck(0);
+});
+
+/* ============================== 루프 ============================== */
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+window.__slime = {
+  toys, grabs, Sound, Burst, WaxShell, camera,
+  select: i => select(i == null ? null : toys[i]),
+  project(i) {
+    const t = toys[i];
+    _v3.copy(t.mesh.position).project(camera);
+    return { x: (_v3.x * .5 + .5) * innerWidth, y: (-_v3.y * .5 + .5) * innerHeight };
+  }
+};
+
+let last = performance.now();
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(.033, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+  if (camTween) {
+    const s = (t - camTween.t0) / camTween.dur;
+    const ease = easeIO(Math.min(1, s));
+    camera.position.lerpVectors(camTween.fp, camTween.tp, ease);
+    controls.target.lerpVectors(camTween.ft, camTween.tt, ease);
+    if (s >= 1) camTween = null;
+  }
+  controls.enabled = !camTween && grabs.size === 0;
+  controls.update();
+  for (const toy of toys) toy.update(dt, t);
+  WaxShell.sync();
+  Burst.update(dt);
+  Shards.update(dt);
+  Dust.update(t);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(tick);
+window.__slimeBooted = true; // 씬 구성까지 도달 = 부팅 성공 (숨겨진 탭에서도 오탐 없음)
+</script>
+</body>
+</html>
