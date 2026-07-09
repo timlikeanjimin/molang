@@ -595,7 +595,8 @@ class SoftToy {
     cfg.mat.vertexColors = true;
     if (!(cfg.mat.transmission > .1)) this.mesh.receiveShadow = true;
     this.active = false;
-    this.grab = null;
+    this.grabs = new Map(); // pointerId → grab (동시 다중 터치)
+    this.cw = new Float32Array(this.count); // 프레임별 최대 그랩 가중치
     this.wob = 0; this.wobV = 0;
     this.phase = Math.random() * Math.PI * 2;
     this.focusScale = 1; this.focusTarget = 1;
@@ -618,7 +619,7 @@ class SoftToy {
       }
     }
   }
-  startGrab(hitLocal, hitNormalLocal, t0) {
+  startGrab(id, hitLocal, hitNormalLocal, t0) {
     const n = this.count, Ri = this.R * this.phys.grabR;
     const w = new Float32Array(n), ring = new Float32Array(n);
     const b = this.base;
@@ -629,30 +630,60 @@ class SoftToy {
       const rd = (d - Ri * 1.25) / (Ri * .55);
       ring[i] = Math.exp(-rd * rd) * .35;
     }
-    this.grab = { w, ring, t0, disp: new THREE.Vector3(), hitN: hitNormalLocal.clone().normalize(), hitLocal: hitLocal.clone(), mag: 0 };
+    const g = { w, ring, t0, disp: new THREE.Vector3(), hitN: hitNormalLocal.clone().normalize(), hitLocal: hitLocal.clone(), mag: 0 };
+    this.grabs.set(id, g);
     this.active = true;
+    return g;
   }
-  endGrab() {
-    const g = this.grab;
-    this.grab = null;
+  endGrab(id) {
+    const g = this.grabs.get(id);
     if (!g) return 0;
+    this.grabs.delete(id);
     const i = Math.min(1.4, g.mag / this.R);
     if (this.type !== 'slow' && !this.phys.plastic) this.wobV += Math.min(1.2, i * 1.1); // 저반발·점토는 찰랑이지 않는다
-    /* 소성: 변형의 일부가 영구히 새 모양이 된다 (뭉개짐·자국) */
+    /* 소성: 마지막 손을 떼는 순간 변형 일부가 영구히 새 모양이 된다 (뭉개짐·자국) */
     const pl = this.phys.plast;
-    if (pl) {
+    if (pl && this.grabs.size === 0) {
       const a = Math.min(.7, pl);
       const b = this.base, o = this.off, v = this.vel;
       for (let j = 0; j < o.length; j++) { b[j] += o[j] * a; o[j] *= 1 - a; v[j] *= .3; }
+      this.renormalizePlastic(); // 쪼그라듦 방지: 전체 크기 보존 + 편차 제한
       this.baseN.set(this.geo.attributes.normal.array);
       this.active = true;
     }
     return i;
   }
+  /* 영구 변형이 누적돼 개체가 쪼그라드는 것을 막는다: 편차 클램프 + 평균반경 보존 */
+  renormalizePlastic() {
+    const b = this.base, b0 = this.base0, n = this.count, maxDev = this.R * .42;
+    let cx = 0, cy = 0, cz = 0, cx0 = 0, cy0 = 0, cz0 = 0;
+    for (let i = 0; i < n; i++) {
+      const i3 = i * 3;
+      let dx = b[i3] - b0[i3], dy = b[i3 + 1] - b0[i3 + 1], dz = b[i3 + 2] - b0[i3 + 2];
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > maxDev) { const s = maxDev / d; b[i3] = b0[i3] + dx * s; b[i3 + 1] = b0[i3 + 1] + dy * s; b[i3 + 2] = b0[i3 + 2] + dz * s; }
+      cx += b[i3]; cy += b[i3 + 1]; cz += b[i3 + 2];
+      cx0 += b0[i3]; cy0 += b0[i3 + 1]; cz0 += b0[i3 + 2];
+    }
+    cx /= n; cy /= n; cz /= n; cx0 /= n; cy0 /= n; cz0 /= n;
+    let r = 0, r0 = 0;
+    for (let i = 0; i < n; i++) {
+      const i3 = i * 3;
+      r += Math.hypot(b[i3] - cx, b[i3 + 1] - cy, b[i3 + 2] - cz);
+      r0 += Math.hypot(b0[i3] - cx0, b0[i3 + 1] - cy0, b0[i3 + 2] - cz0);
+    }
+    const s = r > 1e-6 ? r0 / r : 1; // 평균반경을 원본에 맞춰 재스케일 → 크기 유지
+    for (let i = 0; i < n; i++) {
+      const i3 = i * 3;
+      b[i3] = cx0 + (b[i3] - cx) * s;
+      b[i3 + 1] = cy0 + (b[i3 + 1] - cy) * s;
+      b[i3 + 2] = cz0 + (b[i3 + 2] - cz) * s;
+    }
+  }
   reset() {
     this.base.set(this.base0);
     this.off.fill(0); this.vel.fill(0);
-    this.wob = 0; this.wobV = 0; this.grab = null;
+    this.wob = 0; this.wobV = 0; this.grabs.clear();
     this.writePositions();
     this.baseN.set(this.geo.attributes.normal.array);
     this.active = false;
@@ -688,13 +719,21 @@ class SoftToy {
     this.mesh.position.y = this.bottomY - this.minY * f;
 
     const n = this.count, off = this.off, vel = this.vel;
-    const g = this.grab;
+    const grabs = this.grabs, anyGrab = grabs.size > 0;
+
+    /* 이번 프레임에 어떤 손이라도 잡고 있는 정점 = 최대 가중치 cw */
+    const cw = this.cw;
+    if (anyGrab) {
+      cw.fill(0);
+      for (const g of grabs.values())
+        for (let i = 0; i < n; i++) if (g.w[i] > cw[i]) cw[i] = g.w[i];
+    }
 
     if (this.active && !this.phys.plastic) { // 점토(plastic)는 복원 스프링이 없다
       const h = dt / 2, k = this.phys.k, c = this.phys.c;
       for (let s = 0; s < 2; s++) {
         for (let i = 0; i < n; i++) {
-          if (g && g.w[i] > .004) continue;
+          if (anyGrab && cw[i] > .004) continue;
           for (let a = 0; a < 3; a++) {
             const idx = i * 3 + a;
             const v = vel[idx] + (-k * off[idx] - c * vel[idx]) * h;
@@ -704,25 +743,28 @@ class SoftToy {
       }
     }
 
-    if (g) {
-      const press = this.R * this.phys.press * Math.min(1, (t - g.t0) * 4.5);
-      _v1.copy(g.disp).addScaledVector(g.hitN, -press);
-      const L = _v1.length(), maxL = this.R * this.phys.maxStretch;
-      if (L > maxL) _v1.multiplyScalar(maxL / L);
-      g.mag = _v1.length();
-      const bulge = Math.max(0, -_v1.dot(g.hitN)) * .5;
+    if (anyGrab) {
+      const bN = this.baseN, invDt = 1 / Math.max(dt, 1e-4);
       const kf = 1 - Math.exp(-dt * this.phys.snap);
-      const tx = _v1.x, ty = _v1.y, tz = _v1.z, bN = this.baseN;
-      const invDt = 1 / Math.max(dt, 1e-4);
-      for (let i = 0; i < n; i++) {
-        const w = g.w[i];
-        if (w < .004) continue;
-        const rb = g.ring[i] * bulge;
-        const i3 = i * 3;
-        let d;
-        d = (tx * w + bN[i3] * rb - off[i3]) * kf; vel[i3] = d * invDt; off[i3] += d;
-        d = (ty * w + bN[i3 + 1] * rb - off[i3 + 1]) * kf; vel[i3 + 1] = d * invDt; off[i3 + 1] += d;
-        d = (tz * w + bN[i3 + 2] * rb - off[i3 + 2]) * kf; vel[i3 + 2] = d * invDt; off[i3 + 2] += d;
+      const maxL = this.R * this.phys.maxStretch;
+      for (const g of grabs.values()) { // 손가락마다 각자 끌어당김
+        const press = this.R * this.phys.press * Math.min(1, (t - g.t0) * 4.5);
+        _v1.copy(g.disp).addScaledVector(g.hitN, -press);
+        const L = _v1.length();
+        if (L > maxL) _v1.multiplyScalar(maxL / L);
+        g.mag = _v1.length();
+        const bulge = Math.max(0, -_v1.dot(g.hitN)) * .5;
+        const tx = _v1.x, ty = _v1.y, tz = _v1.z;
+        for (let i = 0; i < n; i++) {
+          const w = g.w[i];
+          if (w < .004) continue;
+          const rb = g.ring[i] * bulge;
+          const i3 = i * 3;
+          let d;
+          d = (tx * w + bN[i3] * rb - off[i3]) * kf; vel[i3] = d * invDt; off[i3] += d;
+          d = (ty * w + bN[i3 + 1] * rb - off[i3 + 1]) * kf; vel[i3 + 1] = d * invDt; off[i3 + 1] += d;
+          d = (tz * w + bN[i3 + 2] * rb - off[i3 + 2]) * kf; vel[i3 + 2] = d * invDt; off[i3 + 2] += d;
+        }
       }
       this.active = true;
     }
@@ -730,7 +772,7 @@ class SoftToy {
     if (this.active) {
       /* 라플라시안 평활 = 점성. 점토는 잡는 동안만 (놓으면 자국이 영구 보존) */
       const goo = this.phys.goo ?? .35;
-      const iters = this.phys.plastic && !g ? 0 : (goo > .45 ? 2 : 1);
+      const iters = this.phys.plastic && !anyGrab ? 0 : (goo > .45 ? 2 : 1);
       const ns = this.nbrStart, nl = this.nbrList, dst = this.tmpOff;
       for (let it = 0; it < iters; it++) {
         for (let i = 0; i < n; i++) {
@@ -757,13 +799,13 @@ class SoftToy {
         if (off[iy] < minOff) { off[iy] = minOff; if (vel[iy] < 0) vel[iy] = 0; }
       }
       this.writePositions();
-      if (this.phys.plastic && !g) { // 점토: 눌린 그대로 굳는다 — 부수면 끝
+      if (this.phys.plastic && !anyGrab) { // 점토: 눌린 그대로 굳는다 — 부수면 끝
         vel.fill(0);
         this.active = false;
-      } else {
+      } else if (!anyGrab) {
         let e = 0;
         for (let i = 0; i < off.length; i++) e += off[i] * off[i] + vel[i] * vel[i];
-        if (!g && e < this.count * 3e-7) {
+        if (e < this.count * 3e-7) {
           off.fill(0); vel.fill(0);
           this.writePositions();
           this.active = false;
@@ -1404,7 +1446,7 @@ function focusView(toy) {
   return { pos, target };
 }
 function endAllGrabs() {
-  for (const [, g] of grabs) { if (g.toy) g.toy.endGrab(); Sound.bedStop(g.bed); }
+  for (const [id, g] of grabs) { if (g.toy) g.toy.endGrab(id); Sound.bedStop(g.bed); }
   grabs.clear();
 }
 function select(toy) {
@@ -1517,9 +1559,9 @@ function onDown(e) {
   if (e.target !== canvas) return; // UI 위 클릭은 UI에게
   Sound.init();
   showToastOnce();
-  /* 조물조물 중 두 번째 손가락 → 카메라 회전 방지 */
-  if (grabs.size > 0) { e.stopPropagation(); e.preventDefault(); return; }
   const hit = pickAll(e);
+  /* 이미 뭔가 잡고 있는데 빈 곳을 눌렀다 → 카메라 회전 대신 무시 (조물조물 유지) */
+  if (grabs.size > 0 && (!hit || hit.toy !== selected)) { e.stopPropagation(); e.preventDefault(); return; }
   if (!hit) return; // 빈 곳 → OrbitControls
   e.stopPropagation();
   e.preventDefault();
@@ -1528,16 +1570,16 @@ function onDown(e) {
   if (!selected || hit.toy !== selected) { select(hit.toy); return; }
 
   const toy = hit.toy;
-  if (toy.grab) return;
+  if (toy.grabs.has(e.pointerId)) return;
   const hitWorld = hit.point.clone();
   const hitLocal = toy.mesh.worldToLocal(hitWorld.clone());
   /* 껍질 히트면 방사 방향이 가장 안정적인 노멀 */
   const nLocal = hit.isShell ? hitLocal.clone().normalize()
     : (hit.normal ? hit.normal.clone() : new THREE.Vector3(0, 1, 0));
-  toy.startGrab(hitLocal, nLocal, performance.now() / 1000);
+  const tg = toy.startGrab(e.pointerId, hitLocal, nLocal, performance.now() / 1000);
   const camDir = camera.getWorldDirection(_v1).clone();
   grabs.set(e.pointerId, {
-    mode: 'grab', toy, hitWorld,
+    mode: 'grab', toy, tg, hitWorld,
     plane: new THREE.Plane().setFromNormalAndCoplanarPoint(camDir.negate(), hitWorld),
     lastWorld: hitWorld.clone(), lastT: performance.now(),
     acc: 0, lastGrainT: 0, lastMag: 0,
@@ -1580,7 +1622,7 @@ function onMove(e) {
   }
   e.preventDefault();
 
-  const toy = g.toy, grab = toy.grab;
+  const toy = g.toy, grab = g.tg;
   if (!grab) return;
   ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
@@ -1595,7 +1637,7 @@ function onMove(e) {
     grabs.delete(e.pointerId);
     Sound.bedStop(g.bed);
     const at = _v1.clone();
-    toy.endGrab();
+    toy.endGrab(e.pointerId);
     Sound.tear(toy.mesh.position.x);
     Burst.burst(at, 14, .8);
     Crumbs.spawn(toy, at, _v2.copy(at).sub(toy.mesh.position).setY(0).normalize().multiplyScalar(1.4).setY(2.2));
@@ -1634,11 +1676,11 @@ function onUp(e) {
   canvas.style.cursor = 'default';
   Sound.bedStop(g.bed);
   const toy = g.toy;
-  const gg = toy.grab;
+  const gg = g.tg;
   const releaseWorld = gg
     ? toy.mesh.localToWorld(_v1.copy(gg.hitLocal).add(gg.disp)).clone()
     : toy.mesh.position.clone();
-  const intensity = toy.endGrab();
+  const intensity = toy.endGrab(e.pointerId);
   Sound.release(toy.sfx, Math.min(1, .25 + intensity * .7), toy.mesh.position.x);
   Burst.burst(releaseWorld, 8 + Math.round(intensity * 14), .4 + intensity * .8);
   if (intensity > .45) { spawnHearts(releaseWorld, 2 + Math.round(intensity * 3)); navigator.vibrate?.(20); }
